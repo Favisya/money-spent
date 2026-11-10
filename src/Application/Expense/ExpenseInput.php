@@ -57,11 +57,10 @@ final class ExpenseInput
         try {
             $amount = Money::fromDecimal($text, $currency);
         } catch (InvalidAmountException) {
-            throw new UserError(sprintf(
-                'В %s не больше %d знаков после запятой, и сумма не может быть такой большой.',
-                $currency->code,
-                $currency->exponent,
-            ));
+            throw new UserError(
+                'В %currency% не больше %digits% знаков после запятой, и сумма не может быть такой большой.',
+                ['%currency%' => $currency->code, '%digits%' => $currency->exponent],
+            );
         }
 
         if ($amount->isZero()) {

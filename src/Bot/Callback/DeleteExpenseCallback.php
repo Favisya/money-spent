@@ -9,6 +9,7 @@ use App\Bot\BotContext;
 use App\Bot\Reply\CallbackAnswer;
 use App\Bot\Reply\EditReply;
 use App\Bot\Telegram\CallbackQuery;
+use App\Bot\View\BotTranslator;
 use App\Bot\View\ExpenseCard;
 
 final readonly class DeleteExpenseCallback implements BotCallback
@@ -18,6 +19,7 @@ final readonly class DeleteExpenseCallback implements BotCallback
     public function __construct(
         private ExpenseEditor $editor,
         private ExpenseCard $card,
+        private BotTranslator $translator,
     ) {
     }
 
@@ -39,7 +41,7 @@ final readonly class DeleteExpenseCallback implements BotCallback
 
         return [
             new EditReply($context->chatId, $context->messageId, $this->card->deleted($expense)),
-            new CallbackAnswer($query->id, 'Удалено'),
+            new CallbackAnswer($query->id, $this->translator->text('Удалено')),
         ];
     }
 }

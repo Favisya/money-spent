@@ -8,6 +8,7 @@ use App\Bot\BotContext;
 use App\Bot\Reply\CallbackAnswer;
 use App\Bot\Reply\Reply;
 use App\Bot\Telegram\CallbackQuery;
+use App\Bot\View\BotTranslator;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 final readonly class CallbackRouter
@@ -18,6 +19,7 @@ final readonly class CallbackRouter
     public function __construct(
         #[AutowireIterator(BotCallback::TAG)]
         private iterable $callbacks,
+        private BotTranslator $translator,
     ) {
     }
 
@@ -34,6 +36,6 @@ final readonly class CallbackRouter
             }
         }
 
-        return [new CallbackAnswer($query->id, 'Кнопка устарела.')];
+        return [new CallbackAnswer($query->id, $this->translator->text('Кнопка устарела.'))];
     }
 }

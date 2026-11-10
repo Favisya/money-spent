@@ -7,6 +7,7 @@ namespace App\Web\Controller;
 use App\Application\Clock\LocalCalendar;
 use App\Application\Expense\ExpenseEditor;
 use App\Application\Expense\ExpenseRecorder;
+use App\Application\Expense\JointExpenseRecorder;
 use App\Application\Parsing\ParseErrorMessages;
 use App\Application\Parsing\ParserFactory;
 use App\Application\Report\MonthPeriod;
@@ -36,6 +37,7 @@ final class DashboardController extends AbstractController
     private const string OWNER_KEY    = '/^(shared|p\d+)$/';
     private const array NOTICES       = [
         'added'    => 'Трата записана.',
+        'joint'    => 'Записано пополам: по половине на каждого, долг не изменился.',
         'deleted'  => 'Удалено.',
         'category' => 'Категория изменена.',
         'note'     => 'Заметка сохранена.',
@@ -53,6 +55,7 @@ final class DashboardController extends AbstractController
         private readonly ParserFactory $parsers,
         private readonly ParseErrorMessages $parseErrors,
         private readonly ExpenseRecorder $recorder,
+        private readonly JointExpenseRecorder $jointRecorder,
         private readonly ExpenseEditor $editor,
         private readonly SettlementRecorder $settlements,
         private readonly LedgerEntryRepository $entries,
@@ -76,7 +79,7 @@ final class DashboardController extends AbstractController
             $period = MonthPeriod::fromArgument($request->query->getString('m'), $this->calendar->today());
         } catch (UserError $exception) {
             $period = $current;
-            $error  = $exception->getMessage();
+            $error  = $exception;
         }
 
         $who = $this->ownerKey($request->query->getString('who'));
@@ -92,7 +95,9 @@ final class DashboardController extends AbstractController
     public function add(Request $request): Response
     {
         $text    = mb_substr($request->request->getString('text'), 0, 1000);
-        $payerId = $request->request->getInt('payer');
+        $choice  = $request->request->getString('payer');
+        $joint   = $choice === JointExpenseRecorder::BOTH;
+        $payerId = $joint ? 0 : (int) filter_var($choice, FILTER_VALIDATE_INT);
         $payer   = $this->participants->find($payerId);
 
         if ($request->request->getString('kind') === 'transfer' || $this->transfers->isTransfer($text)) {
@@ -100,7 +105,7 @@ final class DashboardController extends AbstractController
         }
 
         try {
-            if ($payer === null) {
+            if ($payer === null && !$joint) {
                 throw new UserError('Выбери, кто платил.');
             }
 
@@ -108,18 +113,26 @@ final class DashboardController extends AbstractController
                 $this->parsers->create()->parse($text, $this->calendar->today()),
                 $request->request->getString('whose'),
             );
-            $recorded = $this->recorder->record($payer, $parsed, Uuid::v4()->toRfc4122());
+            $uuid     = Uuid::v4()->toRfc4122();
+            $recorded = $payer === null
+                ? $this->jointRecorder->record($parsed, $uuid)[0]
+                : $this->recorder->record($payer, $parsed, $uuid);
         } catch (ExpenseParseException $exception) {
-            return $this->failedAdd($request, $text, $payerId, $this->parseErrors->message($exception));
+            return $this->failedAdd($request, $text, $choice, $this->parseErrors->error($exception));
         } catch (UserError $exception) {
-            return $this->failedAdd($request, $text, $payerId, $exception->getMessage());
+            return $this->failedAdd($request, $text, $choice, $exception);
         }
 
-        $response = $this->back($request, 'added', $recorded->expense->id, MonthPeriod::containing($parsed->spentAt));
+        $response = $this->back(
+            $request,
+            $joint ? 'joint' : 'added',
+            $recorded->expense->id,
+            MonthPeriod::containing($parsed->spentAt),
+        );
         $response->headers->setCookie(
             Cookie::create(
                 self::PAYER_COOKIE,
-                (string) $payerId,
+                $joint ? JointExpenseRecorder::BOTH : (string) $payerId,
                 time() + self::COOKIE_TTL,
                 sameSite: Cookie::SAMESITE_STRICT,
             ),
@@ -144,9 +157,9 @@ final class DashboardController extends AbstractController
             );
             $this->transferRecorder->record($transfer, Uuid::v4()->toRfc4122());
         } catch (ExpenseParseException $exception) {
-            return $this->failedAdd($request, $text, $senderId, $this->parseErrors->message($exception));
+            return $this->failedAdd($request, $text, $senderId, $this->parseErrors->error($exception));
         } catch (UserError $exception) {
-            return $this->failedAdd($request, $text, $senderId, $exception->getMessage());
+            return $this->failedAdd($request, $text, $senderId, $exception);
         }
 
         $notice = $transfer->isBetweenParticipants() ? 'settled' : 'sent';
@@ -268,9 +281,9 @@ final class DashboardController extends AbstractController
                 Uuid::v4()->toRfc4122(),
             );
         } catch (ExpenseParseException $exception) {
-            return $this->failedSettle($request, $text, $this->parseErrors->message($exception));
+            return $this->failedSettle($request, $text, $this->parseErrors->error($exception));
         } catch (UserError $exception) {
-            return $this->failedSettle($request, $text, $exception->getMessage());
+            return $this->failedSettle($request, $text, $exception);
         }
 
         return $this->back($request, 'settled');
@@ -304,12 +317,12 @@ final class DashboardController extends AbstractController
         return $this->render('web/dashboard.html.twig', [
             'dashboard' => $this->dashboards->build($period, $current, $who),
             'whose'     => $request->request->getString('whose', SplitType::Equal->value),
-            'payerId'   => $request->cookies->getInt(self::PAYER_COOKIE),
+            'payerId'   => $request->cookies->getString(self::PAYER_COOKIE),
             ...$state,
         ], new Response(status: $status));
     }
 
-    private function failedAdd(Request $request, string $text, int $payerId, string $error): Response
+    private function failedAdd(Request $request, string $text, int|string $payerId, UserError $error): Response
     {
         return $this->page($request, $this->returnPeriod($request), [
             'expenseError' => $error,
@@ -324,11 +337,11 @@ final class DashboardController extends AbstractController
     private function failedEdit(Request $request, UserError $error): Response
     {
         return $this->page($request, $this->returnPeriod($request), [
-            'editError' => $error->getMessage(),
+            'editError' => $error,
         ], Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 
-    private function failedSettle(Request $request, string $text, string $error): Response
+    private function failedSettle(Request $request, string $text, UserError $error): Response
     {
         return $this->page($request, $this->returnPeriod($request), [
             'settleError'  => $error,

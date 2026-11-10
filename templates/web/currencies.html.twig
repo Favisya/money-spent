@@ -1,0 +1,73 @@
+{% extends 'web/base.html.twig' %}
+
+{% block title %}{{ 'Валюты'|trans }} — {{ 'Траты'|trans }}{% endblock %}
+
+{% block body %}
+    {% set editError = editError ?? {} %}
+    {% set editAliases = editAliases ?? {} %}
+    <div class="pagehead">
+        <h1>{{ 'Валюты'|trans }}</h1>
+        <p class="hint measure">{{ 'Добавь любую валюту по коду ISO: она появится в переключателе сверху, в выборе суммы у трат и в строке ввода — <code>50 gel</code> или словом, которое укажешь, например <code>50 лари</code>.'|trans|raw }}
+            {{ 'Курс к %base% берётся из ЦБ Армении и ЦБ России, если они его публикуют.'|trans({'%base%': base.code}) }}</p>
+    </div>
+
+    <section class="block">
+        <h2>{{ 'Добавить'|trans }}</h2>
+        <form class="curadd" method="post" action="{{ path('web_currency_add') }}">
+            <div>
+                <label class="label" for="cur-code">{{ 'Валюта'|trans }}</label>
+                <select id="cur-code" class="input" name="code" required>
+                    <option value="">{{ 'выбери…'|trans }}</option>
+                    {% for code, name in addable %}
+                        <option value="{{ code }}" {{ code == (addCode ?? '') ? 'selected' }}>{{ code }} — {{ name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="label" for="cur-aliases">{{ 'Слова для строки ввода'|trans }}</label>
+                <input id="cur-aliases" class="input" name="aliases" maxlength="500" value="{{ addAliases ?? '' }}"
+                       placeholder="{{ 'лари, ₾ — необязательно'|trans }}">
+            </div>
+            <button class="button" type="submit">{{ 'Добавить'|trans }}</button>
+        </form>
+        {% if addError ?? null %}<p class="error" role="alert">{{ addError|message }}</p>{% endif %}
+    </section>
+
+    <section class="block">
+        <div class="block__head"><h2>{{ 'В учёте'|trans }}</h2><span class="muted num">{{ currencies|filter(c => c.active)|length }}</span></div>
+        {% for d in currencies %}
+            {% set code = d.currency.code %}
+            {% set error = editError[code] ?? null %}
+            <form class="catrow{{ code == (highlight ?? '') ? ' is-new' }}{{ d.active ? '' : ' is-off' }}" method="post"
+                  action="{{ path('web_currency_save', {code: code}) }}" id="cur{{ code }}">
+                <div class="catrow__fields">
+                    <div class="curname">
+                        <strong class="num">{{ code }}</strong>
+                        <span class="muted">{{ names[code] }}</span>
+                        {% if code == base.code %}
+                            <span class="tag" title="{{ 'В ней считаются все итоги'|trans }}">{{ 'основная'|trans }}</span>
+                        {% elseif rates[code] %}
+                            <span class="muted num" title="{{ 'Курс ЦБ Армении'|trans }}">1 {{ code }} = {{ rates[code]|rate_value }} {{ base.code }}</span>
+                        {% else %}
+                            <span class="warn" title="{{ 'ЦБ Армении не публикует курс этой валюты на сегодня'|trans }}">{{ 'нет курса'|trans }}</span>
+                        {% endif %}
+                    </div>
+                    <label class="sr" for="aliases{{ code }}">{{ 'Слова для строки ввода'|trans }}</label>
+                    <input id="aliases{{ code }}" class="input catrow__words" name="aliases" maxlength="500"
+                           placeholder="{{ 'слова через запятую'|trans }}" value="{{ editAliases[code] ?? d.aliases|join(', ') }}"
+                           {{ d.active ? '' : 'disabled' }}>
+                </div>
+                <div class="catrow__meta">
+                    <span class="muted num" title="{{ 'Записей в этой валюте'|trans }}">{{ usage[code] ?? 0 }}</span>
+                    {% if d.active %}<button class="button button--quiet" type="submit">{{ 'Сохранить'|trans }}</button>{% endif %}
+                    {% if code != base.code %}
+                        <button class="link{{ d.active ? ' link--danger' }}" type="submit"
+                                formaction="{{ path('web_currency_visibility', {code: code}) }}"
+                                name="active" value="{{ d.active ? '0' : '1' }}" formnovalidate>{{ d.active ? 'скрыть'|trans : 'вернуть'|trans }}</button>
+                    {% endif %}
+                </div>
+                {% if error %}<p class="error" role="alert">{{ error|message }}</p>{% endif %}
+            </form>
+        {% endfor %}
+    </section>
+{% endblock %}

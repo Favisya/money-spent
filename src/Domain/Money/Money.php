@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Money;
 
+use InvalidArgumentException;
+
 final readonly class Money
 {
     private const int MAX_DIGITS = 15;
@@ -69,6 +71,29 @@ final readonly class Money
     public function abs(): self
     {
         return $this->isNegative() ? $this->negate() : $this;
+    }
+
+    /**
+     * Equal parts that add up to this amount exactly; leftover minor units go to the first parts.
+     *
+     * @return non-empty-list<self>
+     */
+    public function split(int $parts): array
+    {
+        if ($parts < 1) {
+            throw new InvalidArgumentException('Split into at least one part.');
+        }
+
+        $share     = intdiv($this->minor, $parts);
+        $remainder = $this->minor - $share * $parts;
+        $unit      = $remainder <=> 0;
+        $result    = [];
+
+        for ($index = 0; $index < $parts; ++$index) {
+            $result[] = new self($share + ($index < abs($remainder) ? $unit : 0), $this->currency);
+        }
+
+        return $result;
     }
 
     public function isZero(): bool

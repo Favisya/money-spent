@@ -64,14 +64,14 @@ final class Runtime {
         webPort = Runtime.isFree(Runtime.preferredPort) ? Runtime.preferredPort : try Runtime.freePort()
         sharingURLs = sharing ? Runtime.lanURLs(port: webPort) : []
 
-        status("Готовлю базу данных…")
+        status(L10n.text("status.preparingDatabase"))
         try initDatabaseIfNeeded()
         try startDatabase()
 
-        status("Обновляю приложение…")
+        status(L10n.text("status.updatingApp"))
         try prepareApplication()
 
-        status("Запускаю…")
+        status(L10n.text("status.starting"))
         try startServer()
         startWorker()
         fetchRatesInBackground()
@@ -126,7 +126,7 @@ final class Runtime {
         try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: passwordFile.path)
         defer { try? fileManager.removeItem(at: passwordFile) }
 
-        try check("Создание базы", run(pg("initdb"), [
+        try check(L10n.text("step.createDatabase"), run(pg("initdb"), [
             "-D", pgData.path,
             "-U", "app",
             "--pwfile=\(passwordFile.path)",
@@ -144,7 +144,7 @@ final class Runtime {
         }
 
         let options = "-c listen_addresses=127.0.0.1 -p \(dbPort) -c unix_socket_directories='' -c shared_buffers=32MB"
-        try check("Запуск базы", run(pg("pg_ctl"), [
+        try check(L10n.text("step.startDatabase"), run(pg("pg_ctl"), [
             "-D", pgData.path,
             "-l", logs.appendingPathComponent("postgres.log").path,
             "-w", "-t", "60",
@@ -162,12 +162,18 @@ final class Runtime {
             try? fileManager.removeItem(at: varDir.appendingPathComponent("cache"))
         }
 
-        try check("База", console(["doctrine:database:create", "--if-not-exists", "--no-interaction"]))
-        try check("Миграции", console(["doctrine:migrations:migrate", "--no-interaction", "--allow-no-migration"]))
-        try check("Справочники", console(["app:seed", "--no-interaction"]))
+        try check(
+            L10n.text("step.database"),
+            console(["doctrine:database:create", "--if-not-exists", "--no-interaction"])
+        )
+        try check(
+            L10n.text("step.migrations"),
+            console(["doctrine:migrations:migrate", "--no-interaction", "--allow-no-migration"])
+        )
+        try check(L10n.text("step.referenceData"), console(["app:seed", "--no-interaction"]))
 
         if installed != version {
-            try check("Кеш", console(["cache:warmup", "--no-interaction"]))
+            try check(L10n.text("step.cache"), console(["cache:warmup", "--no-interaction"]))
             try version.write(to: marker, atomically: true, encoding: .utf8)
         }
     }
@@ -208,7 +214,7 @@ final class Runtime {
 
         for _ in 0..<100 {
             if let server, !server.isRunning {
-                throw Failure.step("Веб-сервер", "остановился при запуске, подробности в logs/server.log")
+                throw Failure.step(L10n.text("step.webServer"), L10n.text("error.serverStopped"))
             }
 
             var request = URLRequest(url: url)
@@ -228,7 +234,7 @@ final class Runtime {
             Thread.sleep(forTimeInterval: 0.15)
         }
 
-        throw Failure.step("Веб-сервер", "не ответил за 15 секунд, подробности в logs/server.log")
+        throw Failure.step(L10n.text("step.webServer"), L10n.text("error.serverTimeout"))
     }
 
     // MARK: - Processes
@@ -305,7 +311,7 @@ final class Runtime {
     private func check(_ step: String, _ result: (Int32, String)) throws {
         guard result.0 == 0 else {
             let tail = result.1.split(separator: "\n").suffix(4).joined(separator: "\n")
-            throw Failure.step(step, tail.isEmpty ? "код \(result.0)" : tail)
+            throw Failure.step(step, tail.isEmpty ? L10n.text("error.exitCode", result.0) : tail)
         }
     }
 
@@ -378,7 +384,7 @@ final class Runtime {
 
     static func freePort() throws -> Int {
         let socketFD = socket(AF_INET, SOCK_STREAM, 0)
-        guard socketFD >= 0 else { throw Failure.step("Порт", "нет сокета") }
+        guard socketFD >= 0 else { throw Failure.step(L10n.text("step.port"), L10n.text("error.noSocket")) }
         defer { close(socketFD) }
 
         var address = sockaddr_in()
@@ -390,13 +396,13 @@ final class Runtime {
         let bound = withUnsafePointer(to: &address) {
             $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(socketFD, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) }
         }
-        guard bound == 0 else { throw Failure.step("Порт", "не удалось занять порт") }
+        guard bound == 0 else { throw Failure.step(L10n.text("step.port"), L10n.text("error.portBind")) }
 
         var length = socklen_t(MemoryLayout<sockaddr_in>.size)
         let named = withUnsafeMutablePointer(to: &address) {
             $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(socketFD, $0, &length) }
         }
-        guard named == 0 else { throw Failure.step("Порт", "не удалось узнать порт") }
+        guard named == 0 else { throw Failure.step(L10n.text("step.port"), L10n.text("error.portLookup")) }
 
         return Int(UInt16(bigEndian: address.sin_port))
     }

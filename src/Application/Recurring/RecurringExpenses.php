@@ -7,6 +7,7 @@ namespace App\Application\Recurring;
 use App\Application\Clock\LocalCalendar;
 use App\Application\Expense\ExpenseEditor;
 use App\Application\Expense\ExpenseRecorder;
+use App\Application\Expense\JointExpenseRecorder;
 use App\Application\Parsing\ParserFactory;
 use App\Application\Participant\Participant;
 use App\Application\UserError;
@@ -32,6 +33,7 @@ final readonly class RecurringExpenses
     public function __construct(
         private RecurringExpenseRepository $recurring,
         private ExpenseRecorder $recorder,
+        private JointExpenseRecorder $jointRecorder,
         private ExpenseEditor $editor,
         private ParticipantRepository $participants,
         private CategoryRepository $categories,
@@ -42,19 +44,23 @@ final readonly class RecurringExpenses
     ) {
     }
 
-    public function create(int $payerId, string $text, SplitType $whose, int $dayOfMonth): RecurringExpense
+    /**
+     * @param int|null $payerId null: both pay, half each
+     */
+    public function create(?int $payerId, string $text, SplitType $whose, int $dayOfMonth): RecurringExpense
     {
-        $payer  = $this->payer($payerId);
+        $payer  = $payerId === null ? $this->assertJointPossible() : $this->payer($payerId);
         $today  = $this->calendar->today();
         $parsed = $this->parsers->create()->parse($text, $today);
         $rule   = $this->recurrence($dayOfMonth);
-        $start  = $this->firstMonth($rule, $today);
+        $start  = $rule->firstMonth($today);
+        $split  = $whose === SplitType::Equal ? $parsed->split : $whose;
 
         return $this->store(new RecurringDraft(
-            $payer->id,
+            $payer?->id,
             $parsed->amount,
             $this->categoryId($parsed->categoryCodes),
-            $whose === SplitType::Equal ? $parsed->split : $whose,
+            $payer === null ? SplitType::Equal : $split,
             $parsed->note,
             $dayOfMonth,
             $start,
@@ -94,7 +100,7 @@ final readonly class RecurringExpenses
 
         if ($active && !$recurring->active) {
             $today = $this->calendar->today();
-            $first = $this->firstMonth($this->recurrence($recurring->dayOfMonth), $today);
+            $first = $this->recurrence($recurring->dayOfMonth)->firstMonth($today);
 
             if ($first->format('Y-m') > $recurring->nextMonth->format('Y-m')) {
                 $this->recurring->advance($id, $first);
@@ -130,16 +136,19 @@ final readonly class RecurringExpenses
                 continue;
             }
 
-            $payer = $this->payer($recurring->payerId);
+            $payer = $recurring->payerId === null ? null : $this->payer($recurring->payerId);
 
             $this->connection->transactional(function () use ($recurring, $payer, $dates, &$booked): void {
                 foreach ($dates as $date) {
-                    $this->recorder->record(
-                        $payer,
-                        $this->occurrence($recurring, $date),
-                        $this->uuid($recurring, $date),
-                        $recurring->id,
-                    );
+                    $occurrence = $this->occurrence($recurring, $date);
+                    $uuid       = $this->uuid($recurring, $date);
+
+                    if ($payer === null) {
+                        $this->jointRecorder->record($occurrence, $uuid, $recurring->id);
+                    } else {
+                        $this->recorder->record($payer, $occurrence, $uuid, $recurring->id);
+                    }
+
                     ++$booked;
                 }
 
@@ -186,16 +195,18 @@ final readonly class RecurringExpenses
     }
 
     /**
-     * This month while its day is still ahead (or today), otherwise next month.
+     * "Both, half each" needs two people; returns null as the joint payer.
      */
-    private function firstMonth(MonthlyRecurrence $rule, DateTimeImmutable $today): DateTimeImmutable
+    private function assertJointPossible(): null
     {
-        $month = $today->setTime(0, 0)->modify('first day of this month');
+        if (count($this->participants->all()) < 2) {
+            throw new UserError('«Оба» можно выбрать, когда зарегистрированы оба участника.');
+        }
 
-        return $rule->dateIn($month) >= $today->setTime(0, 0) ? $month : $month->modify('first day of next month');
+        return null;
     }
 
-    private function recurrence(int $dayOfMonth): MonthlyRecurrence
+    public function recurrence(int $dayOfMonth): MonthlyRecurrence
     {
         if ($dayOfMonth < 1 || $dayOfMonth > 31) {
             throw new UserError('День месяца — от 1 до 31.');

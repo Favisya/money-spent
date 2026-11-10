@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Integration;
 
 use App\Application\Rates\PendingRateResolver;
+use App\Bot\Command\CommandMenu;
 use App\Bot\Telegram\Update;
 use App\Bot\UpdateProcessor;
 use App\Tests\Support\RecordingTelegramClient;
@@ -209,6 +210,94 @@ final class BotFlowTest extends KernelTestCase
         self::assertStringContainsString('Не знаю такую команду', $this->telegram->lastText());
     }
 
+    public function testEnglishSpeakingUserGetsEnglishReplies(): void
+    {
+        $this->say(self::ANNA, '17000 groceries', 'en-US');
+
+        $card = $this->telegram->lastText();
+        self::assertStringContainsString("17\u{00A0}000 AMD · Groceries", $card);
+        self::assertStringContainsString('10 Nov 2026 · paid by Анна · split in half', $card);
+        $keyboard = $this->telegram->last()['keyboard'];
+        self::assertNotNull($keyboard);
+        self::assertSame(['✏️ Category', '🗑 Delete'], array_map(
+            static fn ($button): string => $button->text,
+            $keyboard->rows[0],
+        ));
+
+        $this->say(self::BORIS, '/balance', 'en');
+        self::assertSame("💸 Борис owes Анна 8\u{00A0}500 AMD", $this->telegram->lastText());
+
+        $this->say(self::ANNA, '/month', 'en');
+        self::assertStringContainsString('November 2026', $this->telegram->lastText());
+        self::assertStringContainsString("Groceries — 17\u{00A0}000 AMD (1)", $this->telegram->lastText());
+
+        $this->say(self::ANNA, '/start', 'en');
+        self::assertStringContainsString('Hi, Анна!', $this->telegram->lastText());
+        self::assertStringContainsString('/language — bot language', $this->telegram->lastText());
+
+        $this->say(self::ANNA, '/nope', 'de');
+        self::assertStringContainsString("I don't know this command", $this->telegram->lastText());
+
+        $this->say(self::ANNA, '/balance', 'uk');
+        self::assertStringContainsString('Борис должен(на) Анна', $this->telegram->lastText());
+    }
+
+    public function testLanguageCommandOverridesTelegramLanguage(): void
+    {
+        $this->say(self::ANNA, '/language', 'en');
+        self::assertSame(
+            'Bot language: English. To switch: /language ru, /language en',
+            $this->telegram->lastText(),
+        );
+
+        $this->say(self::ANNA, '/language ru', 'en');
+        self::assertSame(
+            '✅ Язык бота: Русский. Сменить: /language ru, /language en',
+            $this->telegram->lastText(),
+        );
+        self::assertSame('ru', $this->localeOf(self::ANNA));
+
+        $this->say(self::ANNA, '/undo', 'en');
+        self::assertSame('Нечего удалять.', $this->telegram->lastText());
+
+        $this->say(self::ANNA, '/language <b>fr</b>');
+        self::assertStringStartsWith('⚠️ Такого языка нет.', $this->telegram->lastText());
+        self::assertSame('ru', $this->localeOf(self::ANNA));
+
+        $this->say(self::ANNA, '/language EN');
+        self::assertStringStartsWith('✅ Bot language: English.', $this->telegram->lastText());
+
+        $this->say(self::ANNA, '/undo', 'ru');
+        self::assertSame('Nothing to delete.', $this->telegram->lastText());
+    }
+
+    public function testParseErrorInEnglish(): void
+    {
+        $this->say(self::ANNA, 'hello', 'en');
+
+        $text = $this->telegram->lastText();
+        self::assertStringContainsString('Examples:', $text);
+        self::assertStringContainsString('17000 groceries', $text);
+        self::assertStringNotContainsString('Не нашёл сумму', $text);
+    }
+
+    public function testCommandMenuIsPublishedPerLanguage(): void
+    {
+        self::getContainer()->get(CommandMenu::class)->publish();
+
+        $menus = [];
+
+        foreach ($this->telegram->calls as $call) {
+            [$language, $json] = explode("\n", $call['text'], 2);
+            $menus[$language]  = json_decode($json, true, flags: JSON_THROW_ON_ERROR);
+        }
+
+        self::assertSame('bot language: /language en, /language ru', $menus['*']['language']);
+        self::assertSame('bot language: /language en, /language ru', $menus['en']['language']);
+        self::assertSame('язык бота: /language en, /language ru', $menus['ru']['language']);
+        self::assertSame('кто кому сколько должен', $menus['uk']['balance']);
+    }
+
     public function testWebhookChecksSecret(): void
     {
         $body = json_encode(['update_id' => 999, 'message' => $this->messagePayload(self::ANNA, '100', 999)]);
@@ -231,9 +320,9 @@ final class BotFlowTest extends KernelTestCase
         return $this->app->handle($request, HttpKernelInterface::MAIN_REQUEST, false);
     }
 
-    private function say(int $userId, string $text): void
+    private function say(int $userId, string $text, ?string $language = null): void
     {
-        $this->processor->process($this->message($userId, $text, $this->updateId + 10_000));
+        $this->processor->process($this->message($userId, $text, $this->updateId + 10_000, $language));
     }
 
     private function press(int $userId, string $data): void
@@ -249,25 +338,36 @@ final class BotFlowTest extends KernelTestCase
         ]));
     }
 
-    private function message(int $userId, string $text, int $messageId): Update
+    private function message(int $userId, string $text, int $messageId, ?string $language = null): Update
     {
         return Update::fromArray([
             'update_id' => $this->updateId++,
-            'message'   => $this->messagePayload($userId, $text, $messageId),
+            'message'   => $this->messagePayload($userId, $text, $messageId, $language),
         ]);
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function messagePayload(int $userId, string $text, int $messageId): array
+    private function messagePayload(int $userId, string $text, int $messageId, ?string $language = null): array
     {
+        $from = ['id' => $userId, 'is_bot' => false, 'first_name' => self::NAMES[$userId] ?? 'X'];
+
+        if ($language !== null) {
+            $from['language_code'] = $language;
+        }
+
         return [
             'message_id' => $messageId,
             'chat'       => ['id' => $userId, 'type' => 'private'],
-            'from'       => ['id' => $userId, 'is_bot' => false, 'first_name' => self::NAMES[$userId] ?? 'X'],
+            'from'       => $from,
             'text'       => $text,
         ];
+    }
+
+    private function localeOf(int $userId): mixed
+    {
+        return $this->db->fetchOne('SELECT locale FROM participant WHERE telegram_id = ?', [$userId]);
     }
 
     private function rate(string $date, string $currency, string $rate): void

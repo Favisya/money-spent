@@ -9,6 +9,7 @@ use App\Application\Report\MonthPeriod;
 use App\Bot\BotContext;
 use App\Bot\Reply\DocumentReply;
 use App\Bot\Reply\TextReply;
+use App\Bot\View\BotTranslator;
 use App\Bot\View\MonthNames;
 
 final readonly class ExportCommand implements BotCommand
@@ -16,6 +17,7 @@ final readonly class ExportCommand implements BotCommand
     public function __construct(
         private CsvExporter $exporter,
         private MonthNames $months,
+        private BotTranslator $translator,
     ) {
     }
 
@@ -33,17 +35,17 @@ final readonly class ExportCommand implements BotCommand
     {
         $period = MonthPeriod::fromArgument($arguments, $context->today);
         $csv    = $this->exporter->export($period);
-        $label  = $this->months->label($period);
+        $month  = ['%month%' => $this->months->inline($period)];
 
         if ($csv === null) {
-            return [new TextReply($context->chatId, sprintf('За %s трат нет.', mb_strtolower($label)))];
+            return [new TextReply($context->chatId, $this->translator->text('За %month% трат нет.', $month))];
         }
 
         return [new DocumentReply(
             $context->chatId,
             sprintf('expenses-%s.csv', $period->key()),
             $csv,
-            sprintf('Траты: %s', mb_strtolower($label)),
+            $this->translator->text('Траты: %month%', $month),
         )];
     }
 }

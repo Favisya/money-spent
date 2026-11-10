@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="ru">
+<html lang="{{ app.request.locale }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <title>{% block title %}Траты{% endblock %}</title>
+    <title>{% block title %}{{ 'Траты'|trans }}{% endblock %}</title>
     <link rel="stylesheet" href="/app.css">
     <script src="/app.js" defer></script>
 </head>
@@ -12,20 +12,27 @@
 {% block header %}
 <header class="topbar">
     <div class="wrap topbar__inner">
-        <a class="brand" href="{{ path('web_dashboard') }}">Траты<span class="brand__dot">·</span><span class="brand__sub">на двоих</span></a>
-        <nav class="nav" aria-label="Разделы">
+        <a class="brand" href="{{ path('web_dashboard') }}">{{ 'Траты'|trans }}<span class="brand__dot">·</span><span class="brand__sub">{{ 'на двоих'|trans }}</span></a>
+        <nav class="nav" aria-label="{{ 'Разделы'|trans }}">
             {% set route = app.request.attributes.get('_route') %}
-            <a href="{{ path('web_dashboard') }}" {{ route starts with 'web_dashboard' ? 'aria-current="page"' }}>Обзор</a>
-            <a href="{{ path('web_analytics') }}" {{ route starts with 'web_analytics' ? 'aria-current="page"' }}>Аналитика</a>
-            <a href="{{ path('web_recurring') }}" {{ route starts with 'web_recurring' ? 'aria-current="page"' }}>Регулярные</a>
-            <a href="{{ path('web_import') }}" {{ route starts with 'web_import' ? 'aria-current="page"' }}>Импорт</a>
-            <a href="{{ path('web_categories') }}" {{ route starts with 'web_categor' ? 'aria-current="page"' }}>Категории</a>
+            <a href="{{ path('web_dashboard') }}" {{ route starts with 'web_dashboard' ? 'aria-current="page"' }}>{{ 'Обзор'|trans }}</a>
+            <a href="{{ path('web_analytics') }}" {{ route starts with 'web_analytics' ? 'aria-current="page"' }}>{{ 'Аналитика'|trans }}</a>
+            <a href="{{ path('web_recurring') }}" {{ route starts with 'web_recurring' ? 'aria-current="page"' }}>{{ 'Регулярные'|trans }}</a>
+            <a href="{{ path('web_import') }}" {{ route starts with 'web_import' ? 'aria-current="page"' }}>{{ 'Импорт'|trans }}</a>
+            <a href="{{ path('web_categories') }}" {{ route starts with 'web_categor' ? 'aria-current="page"' }}>{{ 'Категории'|trans }}</a>
+            <a href="{{ path('web_currencies') }}" {{ route starts with 'web_currenc' ? 'aria-current="page"' }}>{{ 'Валюты'|trans }}</a>
             {% if not app.request.attributes.has('_device') %}
-                <a href="{{ path('web_sharing') }}" {{ route starts with 'web_sharing' ? 'aria-current="page"' }}>Доступ</a>
+                <a href="{{ path('web_sharing') }}" {{ route starts with 'web_sharing' ? 'aria-current="page"' }}>{{ 'Доступ'|trans }}</a>
             {% endif %}
-            <a href="{{ path('web_participants') }}" {{ route starts with 'web_participant' ? 'aria-current="page"' }}>Участники</a>
+            <a href="{{ path('web_participants') }}" {{ route starts with 'web_participant' ? 'aria-current="page"' }}>{{ 'Участники'|trans }}</a>
         </nav>
-        <form class="currency" method="post" action="{{ path('web_display_currency') }}" aria-label="Валюта показа">
+        <form class="currency language" method="post" action="{{ path('web_language') }}" aria-label="{{ 'Язык'|trans }}">
+            <input type="hidden" name="back" value="{{ app.request.requestUri }}">
+            {% for l in languages() %}
+                <button type="submit" name="lang" value="{{ l }}" lang="{{ l }}" aria-pressed="{{ l == app.request.locale ? 'true' : 'false' }}">{{ l|upper }}</button>
+            {% endfor %}
+        </form>
+        <form class="currency" method="post" action="{{ path('web_display_currency') }}" aria-label="{{ 'Валюта показа'|trans }}">
             <input type="hidden" name="back" value="{{ app.request.requestUri }}">
             {% set shownCurrency = display_currency() %}
             {% for c in display_choices() %}
@@ -38,16 +45,16 @@
         <div class="wrap ratesbar__inner">
             <form method="post" action="{{ path('web_display_currency') }}" class="ratesbar__source">
                 <input type="hidden" name="back" value="{{ app.request.requestUri }}">
-                <label class="sr" for="rate-source">Источник курса</label>
+                <label class="sr" for="rate-source">{{ 'Источник курса'|trans }}</label>
                 <select id="rate-source" class="select-bare" name="source" onchange="this.form.requestSubmit()">
                     {% for s in rate_sources() %}
-                        <option value="{{ s.value }}" {{ s == rate_source() ? 'selected' }}>Курс {{ s.label }}</option>
+                        <option value="{{ s.value }}" {{ s == rate_source() ? 'selected' }}>{{ 'Курс %source%'|trans({'%source%': s.label|trans}) }}</option>
                     {% endfor %}
                 </select>
-                <noscript><button class="link" type="submit">ок</button></noscript>
+                <noscript><button class="link" type="submit">{{ 'ок'|trans }}</button></noscript>
             </form>
             {% if quotes is empty %}
-                <span class="muted">курсов пока нет — подтянутся, когда будет интернет</span>
+                <span class="muted">{{ 'курсов пока нет — подтянутся, когда будет интернет'|trans }}</span>
             {% else %}
                 <span class="muted num">{{ (quotes|first).date|date('d.m') }}</span>
                 <ul class="ratesbar__list">

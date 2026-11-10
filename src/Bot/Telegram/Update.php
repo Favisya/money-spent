@@ -86,7 +86,12 @@ final readonly class Update
         }
 
         $firstName = $user['first_name'] ?? '';
+        $language  = $user['language_code'] ?? null;
 
-        return new TelegramUser($user['id'], is_string($firstName) ? $firstName : '');
+        return new TelegramUser(
+            $user['id'],
+            is_string($firstName) ? $firstName : '',
+            is_string($language) ? $language : null,
+        );
     }
 }

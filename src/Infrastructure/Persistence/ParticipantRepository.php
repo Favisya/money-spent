@@ -13,6 +13,7 @@ use UnexpectedValueException;
 final readonly class ParticipantRepository
 {
     private const int NAME_LENGTH = 64;
+    private const array COLUMNS   = ['id', 'telegram_id', 'name', 'color', 'locale'];
 
     public function __construct(
         private Connection $connection,
@@ -31,7 +32,7 @@ final readonly class ParticipantRepository
                 INSERT INTO participant (telegram_id, name)
                 VALUES (:telegram_id, :name)
                 ON CONFLICT (telegram_id) DO UPDATE SET telegram_id = EXCLUDED.telegram_id
-                RETURNING id, telegram_id, name, color
+                RETURNING id, telegram_id, name, color, locale
                 SQL,
             [
                 'telegram_id' => $telegramId,
@@ -73,10 +74,24 @@ final readonly class ParticipantRepository
             ->executeStatement();
     }
 
+    /**
+     * @param string|null $locale a supported bot language, null to follow the Telegram language again
+     */
+    public function changeLocale(int $id, ?string $locale): void
+    {
+        $this->connection->createQueryBuilder()
+            ->update('participant')
+            ->set('locale', ':locale')
+            ->where('id = :id')
+            ->setParameter('locale', $locale, $locale === null ? ParameterType::NULL : ParameterType::STRING)
+            ->setParameter('id', $id, ParameterType::INTEGER)
+            ->executeStatement();
+    }
+
     public function find(int $id): ?Participant
     {
         $row = $this->connection->createQueryBuilder()
-            ->select('id', 'telegram_id', 'name', 'color')
+            ->select(...self::COLUMNS)
             ->from('participant')
             ->where('id = :id')
             ->setParameter('id', $id, ParameterType::INTEGER)
@@ -107,7 +122,7 @@ final readonly class ParticipantRepository
     public function all(): array
     {
         $rows = $this->connection->createQueryBuilder()
-            ->select('id', 'telegram_id', 'name', 'color')
+            ->select(...self::COLUMNS)
             ->from('participant')
             ->orderBy('id')
             ->executeQuery()
@@ -126,6 +141,7 @@ final readonly class ParticipantRepository
             Row::nullableInt($row, 'telegram_id'),
             Row::string($row, 'name'),
             ParticipantColor::tryFrom((string) Row::nullableString($row, 'color')),
+            Row::nullableString($row, 'locale'),
         );
     }
 }

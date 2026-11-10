@@ -5,6 +5,7 @@ services:
 
     App\Tests\Support\RecordingTelegramClient: ~
     App\Bot\Telegram\TelegramClient: '@App\Tests\Support\RecordingTelegramClient'
+    App\Bot\Telegram\TelegramAdminClient: '@App\Tests\Support\RecordingTelegramClient'
 
     Psr\Clock\ClockInterface:
         class: Symfony\Component\Clock\MockClock

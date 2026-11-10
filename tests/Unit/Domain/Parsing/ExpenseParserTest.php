@@ -14,6 +14,7 @@ use App\Domain\Split\SplitType;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 final class ExpenseParserTest extends TestCase
 {
@@ -172,6 +173,79 @@ final class ExpenseParserTest extends TestCase
         self::assertSame(count($categories) > 1, $parsed->isCategoryAmbiguous());
     }
 
+    /**
+     * Lines in Russian and English, parsed with the words from config/packages/reference_data.yaml.
+     *
+     * @return iterable<string, array{string, int, string, string, list<string>, SplitType, ?string}>
+     */
+    public static function configuredWordsProvider(): iterable
+    {
+        $d         = '2026-11-10';
+        $yesterday = '2026-11-09';
+        $eq        = SplitType::Equal;
+        $own       = SplitType::PayerOnly;
+        $for       = SplitType::OtherOnly;
+
+        yield 'groceries' => ['17000 groceries', 17000, 'AMD', $d, ['groceries'], $eq, 'groceries'];
+        yield 'supermarket' => ['5000 Supermarket', 5000, 'AMD', $d, ['groceries'], $eq, 'Supermarket'];
+        yield 'euros and subscription' => [
+            '18.5 euros netflix subscription',
+            1850,
+            'EUR',
+            $d,
+            ['subscriptions'],
+            $eq,
+            'netflix subscription',
+        ];
+        yield 'delivery yesterday' => ['9700 delivery yesterday', 9700, 'AMD', $yesterday, ['delivery'], $eq, 'delivery'];
+        yield 'today' => ['300 drams other today', 300, 'AMD', $d, ['other'], $eq, 'other'];
+        yield 'personal' => ['700 coffee personal', 700, 'AMD', $d, [], $own, 'coffee'];
+        yield 'mine' => ['700 coffee mine', 700, 'AMD', $d, [], $own, 'coffee'];
+        yield 'for her' => ['3000 flowers her', 3000, 'AMD', $d, [], $for, 'flowers'];
+        yield 'for him' => ['3000 flowers him', 3000, 'AMD', $d, [], $for, 'flowers'];
+        yield 'rubles petrol' => ['2500 rubles petrol', 250000, 'RUB', $d, ['gas'], $eq, 'petrol'];
+        yield 'roubles fuel' => ['2500 roubles fuel', 250000, 'RUB', $d, ['gas'], $eq, 'fuel'];
+        yield 'bucks gas' => ['40 bucks gas', 4000, 'USD', $d, ['gas'], $eq, 'gas'];
+        yield 'dollar glued' => ['12dollars gasoline', 1200, 'USD', $d, ['gas'], $eq, 'gasoline'];
+        yield 'euro' => ['10 euro misc', 1000, 'EUR', $d, ['other'], $eq, 'misc'];
+        yield 'electricity' => ['15000 electricity bill', 15000, 'AMD', $d, ['utilities'], $eq, 'electricity bill'];
+        yield 'utilities' => ['15000 utilities', 15000, 'AMD', $d, ['utilities'], $eq, 'utilities'];
+        yield 'watermelon is not utilities' => ['900 watermelon', 900, 'AMD', $d, [], $eq, 'watermelon'];
+        yield 'russian still works' => [
+            '9700 доставка вчера лично',
+            9700,
+            'AMD',
+            $yesterday,
+            ['delivery'],
+            $own,
+            'доставка',
+        ];
+        yield 'mixed languages' => ['1000 руб groceries ей', 100000, 'RUB', $d, ['groceries'], $for, 'groceries'];
+    }
+
+    /**
+     * @param list<string> $categories
+     */
+    #[DataProvider('configuredWordsProvider')]
+    public function testUnderstandsConfiguredRussianAndEnglishWords(
+        string $input,
+        int $minor,
+        string $currency,
+        string $date,
+        array $categories,
+        SplitType $split,
+        ?string $note,
+    ): void {
+        $parsed = self::configuredParser()->parse($input, new DateTimeImmutable(self::TODAY));
+
+        self::assertSame($minor, $parsed->amount->minor);
+        self::assertSame($currency, $parsed->amount->currency->code);
+        self::assertSame($date, $parsed->spentAt->format('Y-m-d'));
+        self::assertSame($categories, $parsed->categoryCodes);
+        self::assertSame($split, $parsed->split);
+        self::assertSame($note, $parsed->note);
+    }
+
     public function testReportsWhetherTheDateWasGiven(): void
     {
         $today = new DateTimeImmutable(self::TODAY);
@@ -194,6 +268,7 @@ final class ExpenseParserTest extends TestCase
         yield 'day and month' => ['07.11', '2026-11-07'];
         yield 'with year' => [' 30.09.2025 ', '2025-09-30'];
         yield 'relative word' => ['Вчера', '2026-11-09'];
+        yield 'english relative word' => ['Yesterday', '2026-11-09'];
         yield 'expense line' => ['100 продукты', null];
         yield 'single word' => ['Ноябрь', null];
         yield 'empty' => ['', null];
@@ -282,5 +357,47 @@ final class ExpenseParserTest extends TestCase
         $parsed = $this->parser->parse('100 ' . str_repeat('ж', 300), new DateTimeImmutable(self::TODAY));
 
         self::assertSame(255, mb_strlen((string) $parsed->note));
+    }
+
+    /**
+     * The parser as the app builds it, from the reference data the seed writes.
+     */
+    private static function configuredParser(): ExpenseParser
+    {
+        /** @var array{parameters: array{
+         *     'app.base_currency': string,
+         *     'app.reference.currencies': list<array{code: string, exponent: int, aliases: list<string>}>,
+         *     'app.reference.categories': list<array{code: string, keywords: list<string>}>,
+         *     'app.split_aliases': array<string, string>,
+         * }} $config
+         */
+        $config     = Yaml::parseFile(dirname(__DIR__, 4) . '/config/packages/reference_data.yaml');
+        $parameters = $config['parameters'];
+        $aliases    = [];
+        $base       = null;
+
+        foreach ($parameters['app.reference.currencies'] as $definition) {
+            $currency = new Currency($definition['code'], $definition['exponent']);
+            $base     = $definition['code'] === $parameters['app.base_currency'] ? $currency : $base;
+
+            $aliases[mb_strtolower($definition['code'])] = $currency;
+
+            foreach ($definition['aliases'] as $alias) {
+                $aliases[mb_strtolower($alias)] = $currency;
+            }
+        }
+
+        return new ExpenseParser(new ParserDictionary(
+            $base ?? throw new \LogicException('The base currency is not in the reference data.'),
+            $aliases,
+            array_map(
+                static fn (array $category): CategoryKeywords => new CategoryKeywords(
+                    $category['code'],
+                    $category['keywords'],
+                ),
+                $parameters['app.reference.categories'],
+            ),
+            array_map(SplitType::from(...), $parameters['app.split_aliases']),
+        ));
     }
 }

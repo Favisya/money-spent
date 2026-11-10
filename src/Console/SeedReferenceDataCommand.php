@@ -33,7 +33,7 @@ final class SeedReferenceDataCommand extends Command
     {
         $this->connection->transactional(function (): void {
             foreach ($this->currencies as $currency) {
-                $this->currencyRepository->upsert($currency['code'], $currency['exponent'], $currency['aliases']);
+                $this->currencyRepository->insertIfMissing($currency['code'], $currency['exponent'], $currency['aliases']);
             }
 
             foreach ($this->categories as $order => $category) {

@@ -36,7 +36,7 @@ final readonly class RecurringExpenseRepository
                 'day_of_month' => ':day_of_month',
                 'next_month'   => ':next_month',
             ])
-            ->setParameter('payer_id', $draft->payerId, ParameterType::INTEGER)
+            ->setParameter('payer_id', $draft->payerId, self::nullableInt($draft->payerId))
             ->setParameter('amount_minor', $draft->amount->minor, ParameterType::INTEGER)
             ->setParameter('currency', $draft->amount->currency->code)
             ->setParameter('category_id', $draft->categoryId, ParameterType::INTEGER)
@@ -131,6 +131,39 @@ final readonly class RecurringExpenseRepository
             ->executeStatement();
     }
 
+    /**
+     * Every term at once: the inline editor of a row saves the whole row.
+     */
+    public function update(int $id, RecurringDraft $draft): void
+    {
+        $this->connection->createQueryBuilder()
+            ->update('recurring_expense')
+            ->set('payer_id', ':payer_id')
+            ->set('amount_minor', ':amount_minor')
+            ->set('currency', ':currency')
+            ->set('category_id', ':category_id')
+            ->set('split', ':split')
+            ->set('note', ':note')
+            ->set('day_of_month', ':day_of_month')
+            ->set('next_month', ':next_month')
+            ->where('id = :id')
+            ->setParameter('payer_id', $draft->payerId, self::nullableInt($draft->payerId))
+            ->setParameter('amount_minor', $draft->amount->minor, ParameterType::INTEGER)
+            ->setParameter('currency', $draft->amount->currency->code)
+            ->setParameter('category_id', $draft->categoryId, ParameterType::INTEGER)
+            ->setParameter('split', $draft->split->value)
+            ->setParameter('note', $draft->note)
+            ->setParameter('day_of_month', $draft->dayOfMonth, ParameterType::INTEGER)
+            ->setParameter('next_month', $draft->nextMonth->format('Y-m-01'))
+            ->setParameter('id', $id, ParameterType::INTEGER)
+            ->executeStatement();
+    }
+
+    private static function nullableInt(?int $value): ParameterType
+    {
+        return $value === null ? ParameterType::NULL : ParameterType::INTEGER;
+    }
+
     private function viewQuery(): QueryBuilder
     {
         return $this->connection->createQueryBuilder()
@@ -150,7 +183,7 @@ final readonly class RecurringExpenseRepository
                 'r.is_active',
             )
             ->from('recurring_expense', 'r')
-            ->innerJoin('r', 'participant', 'p', 'p.id = r.payer_id')
+            ->leftJoin('r', 'participant', 'p', 'p.id = r.payer_id')
             ->innerJoin('r', 'category', 'c', 'c.id = r.category_id');
     }
 
@@ -161,8 +194,8 @@ final readonly class RecurringExpenseRepository
     {
         return new RecurringExpense(
             Row::int($row, 'id'),
-            Row::int($row, 'payer_id'),
-            Row::string($row, 'payer_name'),
+            Row::nullableInt($row, 'payer_id'),
+            Row::nullableString($row, 'payer_name'),
             Money::ofMinor(Row::int($row, 'amount_minor'), $this->currencies->get(Row::string($row, 'currency'))),
             Row::int($row, 'category_id'),
             Row::string($row, 'category_code'),

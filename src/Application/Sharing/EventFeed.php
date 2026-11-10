@@ -9,10 +9,12 @@ use App\Infrastructure\Persistence\ExpenseRepository;
 use App\Infrastructure\Persistence\LedgerEntryRepository;
 use App\Infrastructure\Persistence\SettlementRepository;
 use DateTimeImmutable;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * New expenses and transfers for desktop notifications: everything recorded since the cursor where someone else paid.
  * The first call only hands out a cursor, so opening the app never floods old entries.
+ * Texts follow the current language; seeded category titles are translated, participant names never.
  */
 final readonly class EventFeed
 {
@@ -23,6 +25,7 @@ final readonly class EventFeed
         private SettlementRepository $settlements,
         private LedgerEntryRepository $entries,
         private MoneyFormatter $money,
+        private TranslatorInterface $translator,
     ) {
     }
 
@@ -47,7 +50,8 @@ final readonly class EventFeed
             $events[] = new LedgerEvent(
                 'e' . $expense->id,
                 sprintf('%s: %s', $expense->payerName, $this->money->format($expense->amount)),
-                $expense->categoryTitle . ($expense->note === null ? '' : ' · ' . $expense->note),
+                $this->translator->trans($expense->categoryTitle)
+                . ($expense->note === null ? '' : ' · ' . $expense->note),
             );
         }
 
@@ -58,7 +62,10 @@ final readonly class EventFeed
 
             $events[] = new LedgerEvent(
                 's' . $settlement->id,
-                sprintf('%s перевод(ит) %s', $settlement->fromName, $this->money->format($settlement->amount)),
+                $this->translator->trans('%name% перевод(ит) %amount%', [
+                    '%name%'   => $settlement->fromName,
+                    '%amount%' => $this->money->format($settlement->amount),
+                ]),
                 '→ ' . $settlement->toName . ($settlement->note === null ? '' : ' · ' . $settlement->note),
             );
         }

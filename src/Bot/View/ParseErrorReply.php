@@ -11,16 +11,18 @@ final readonly class ParseErrorReply
 {
     public function __construct(
         private ParseErrorMessages $messages,
+        private BotTranslator $translator,
     ) {
     }
 
     public function render(ExpenseParseException $exception): string
     {
         $examples = array_map(
-            static fn (string $example): string => '<code>' . Html::escape($example) . '</code>',
+            fn (string $example): string => '<code>' . Html::escape($this->translator->text($example)) . '</code>',
             ParseErrorMessages::EXAMPLES,
         );
 
-        return '⚠️ ' . Html::escape($this->messages->message($exception)) . "\n\nПримеры:\n" . implode("\n", $examples);
+        return '⚠️ ' . Html::escape($this->messages->message($exception))
+            . "\n\n" . $this->translator->text('Примеры:') . "\n" . implode("\n", $examples);
     }
 }

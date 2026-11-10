@@ -22,4 +22,13 @@ interface TelegramAdminClient
      * @throws TelegramApiException
      */
     public function deleteWebhook(): void;
+
+    /**
+     * Replaces the command menu for users with the given Telegram language, or for everyone else when it is null.
+     *
+     * @param array<string, string> $commands command name without the slash => description
+     *
+     * @throws TelegramApiException
+     */
+    public function setMyCommands(array $commands, ?string $languageCode = null): void;
 }

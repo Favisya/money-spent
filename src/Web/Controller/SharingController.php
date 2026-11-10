@@ -47,7 +47,7 @@ final class SharingController extends AbstractController
         try {
             $code = $this->pairing->createCode($request->request->getInt('participant'));
         } catch (UserError $exception) {
-            return $this->page(['error' => $exception->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->page(['error' => $exception], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         return $this->page(['code' => $code, 'codeFor' => $request->request->getInt('participant')]);

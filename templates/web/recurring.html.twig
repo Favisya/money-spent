@@ -1,83 +1,149 @@
 {% extends 'web/base.html.twig' %}
 
-{% block title %}Регулярные — Траты{% endblock %}
+{% block title %}{{ 'Регулярные'|trans }} — {{ 'Траты'|trans }}{% endblock %}
 
 {% block body %}
     <div class="pagehead">
-        <h1>Регулярные траты</h1>
-        <p class="hint measure">Подписки и всё, что повторяется каждый месяц. В нужный день трата запишется сама — по курсу
-            ЦБ на этот день. Если приложение было закрыто, пропущенные месяцы допишутся при следующем запуске.
-            Готовую трату можно сделать регулярной кнопкой <span class="kbd">↻</span> в списке на обзоре.</p>
+        <h1>{{ 'Регулярные траты'|trans }}</h1>
+        <p class="hint measure">{{ 'Подписки и всё, что повторяется каждый месяц. В нужный день трата запишется сама — по курсу ЦБ на этот день. Если приложение было закрыто, пропущенные месяцы допишутся при следующем запуске.'|trans }}
+            {{ 'Готовую трату можно сделать регулярной кнопкой <span class="kbd">↻</span> в списке на обзоре.'|trans|raw }}</p>
     </div>
-    {% if notice ?? null %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
+    {% if notice ?? null %}<p class="notice" role="status">{{ notice|message }}</p>{% endif %}
 
     <form class="block recurring-form" method="post" action="{{ path('web_recurring_add') }}">
-        <h2>Новая регулярная трата</h2>
+        <h2>{{ 'Новая регулярная трата'|trans }}</h2>
         <div class="recurring-form__row">
             <div class="recurring-form__text">
-                <label class="label" for="rec-text">Что и сколько</label>
+                <label class="label" for="rec-text">{{ 'Что и сколько'|trans }}</label>
                 <input id="rec-text" class="input input--wide" name="text" required maxlength="500" autocomplete="off"
-                       value="{{ text }}" placeholder="18,5 eur чатгпт">
+                       value="{{ text }}" placeholder="{{ '18,5 eur чатгпт'|trans }}">
             </div>
             <div>
-                <label class="label" for="rec-payer">Кто платит</label>
+                <label class="label" for="rec-payer">{{ 'Кто платит'|trans }}</label>
                 <select id="rec-payer" class="input" name="payer">
-                    {% for p in participants %}<option value="{{ p.id }}" {{ p.id == payerId ? 'selected' }}>{{ p.name }}</option>{% endfor %}
+                    {% for p in participants %}<option value="{{ p.id }}" {{ p.id ~ '' == payerId ~ '' ? 'selected' }}>{{ p.name }}</option>{% endfor %}
+                    {% if participants|length > 1 %}<option value="both" {{ payerId == 'both' ? 'selected' }}>{{ 'Оба пополам'|trans }}</option>{% endif %}
                 </select>
             </div>
             <div>
-                <label class="label" for="rec-day">Число месяца</label>
+                <label class="label" for="rec-day">{{ 'Число месяца'|trans }}</label>
                 <input id="rec-day" class="input input--day" type="number" name="day" min="1" max="31" required value="{{ day }}">
             </div>
         </div>
         <fieldset class="whose">
-            <legend>Чья трата</legend>
+            <legend>{{ 'Чья трата'|trans }}</legend>
             {% for value, label in {equal: 'Общая', payer_only: 'Только платившего', other_only: 'За другого'} %}
-                <label><input type="radio" name="whose" value="{{ value }}" {{ whose == value ? 'checked' }}><span>{{ label }}</span></label>
+                <label><input type="radio" name="whose" value="{{ value }}" {{ whose == value ? 'checked' }}><span>{{ label|trans }}</span></label>
             {% endfor %}
         </fieldset>
-        {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-        <button class="button" type="submit">Добавить</button>
-        <p class="hint">Если число месяца сегодня или ещё впереди, первая запись будет в этом месяце. 31 — значит последний
-            день месяца.</p>
+        {% if error %}<p class="error" role="alert">{{ error|message }}</p>{% endif %}
+        <button class="button" type="submit">{{ 'Добавить'|trans }}</button>
+        <p class="hint">{{ 'Если число месяца сегодня или ещё впереди, первая запись будет в этом месяце. 31 — значит последний день месяца.'|trans }}</p>
     </form>
 
     <section class="block">
-        <div class="block__head"><h2>Список</h2><span class="muted num">{{ items|length }}</span></div>
+        <div class="block__head"><h2>{{ 'Список'|trans }}</h2><span class="muted num">{{ items|length }}</span></div>
         {% if items is empty %}
-            <div class="empty"><p>Пока ничего. Например, <code>18,5 eur чатгпт</code> на 10-е число.</p></div>
+            <div class="empty"><p>{{ 'Пока ничего. Например, <code>18,5 eur чатгпт</code> на 10-е число.'|trans|raw }}</p></div>
         {% else %}
-            <table class="ledger">
+            <table class="ledger ledger--expenses">
                 <thead>
                 <tr>
-                    <th scope="col">Число</th>
-                    <th scope="col">Что</th>
-                    <th scope="col">Платит</th>
-                    <th scope="col" class="r">Сумма</th>
-                    <th scope="col">Следующая</th>
-                    <th scope="col"><span class="sr">Действия</span></th>
+                    <th scope="col">{{ 'Число'|trans }}</th>
+                    <th scope="col">{{ 'Что'|trans }}</th>
+                    <th scope="col">{{ 'Платит'|trans }}</th>
+                    <th scope="col">{{ 'Чья'|trans }}</th>
+                    <th scope="col" class="r">{{ 'Сумма'|trans }}</th>
+                    <th scope="col">{{ 'Следующая'|trans }}</th>
+                    <th scope="col"><span class="sr">{{ 'Действия'|trans }}</span></th>
                 </tr>
                 </thead>
                 <tbody>
                 {% for r in items %}
-                    <tr class="{{ r.id == (highlight ?? 0) ? 'is-new' }}{{ r.active ? '' : ' is-off' }}">
-                        <td class="num">{{ r.dayOfMonth }}</td>
-                        <td>{{ r.categoryTitle }}{% if r.note %} <span class="note">{{ r.note }}</span>{% endif %}
-                            {% if r.split.value != 'equal' %}<span class="tag">{{ r.split|split_label }}</span>{% endif %}</td>
-                        <td><span class="pname">{{ avatar(r.payerId, r.payerName) }}{{ r.payerName }}</span></td>
-                        <td class="r num">{{ r.amount|money }}</td>
-                        <td class="num muted">{{ r.active ? r.nextDate|date('d.m.Y') : 'на паузе' }}</td>
+                    {% set f = 'rec-edit-' ~ r.id %}
+                    {% set rowError = editError[r.id] ?? null %}
+                    <tr id="rec{{ r.id }}" class="{{ r.id == (highlight ?? 0) ? 'is-new' }}{{ r.active ? '' : ' is-off' }}">
+                        <td class="num">
+                            <form id="{{ f }}" method="post" action="{{ path('web_recurring_save', {id: r.id}) }}"></form>
+                            <input form="{{ f }}" class="cell-edit cell-edit--day num" type="number" name="day" min="1" max="31"
+                                   value="{{ r.dayOfMonth }}" aria-label="{{ 'Число месяца'|trans }}" onchange="this.form.requestSubmit()">
+                        </td>
+                        <td>
+                            <select form="{{ f }}" class="select-bare" name="category" aria-label="{{ 'Категория'|trans }}" onchange="this.form.requestSubmit()">
+                                {% if categories|filter(c => c.id == r.categoryId) is empty %}
+                                    <option value="{{ r.categoryId }}" selected disabled>{{ r.categoryTitle|trans }} ({{ 'скрыта'|trans }})</option>
+                                {% endif %}
+                                {% for c in categories %}
+                                    <option value="{{ c.id }}" {{ c.id == r.categoryId ? 'selected' }}>{{ c.title|trans }}</option>
+                                {% endfor %}
+                            </select>
+                            <input form="{{ f }}" class="note-edit__input" name="note" maxlength="255" value="{{ r.note }}"
+                                   placeholder="{{ '+ заметка'|trans }}" aria-label="{{ 'Заметка к трате'|trans }}" onchange="this.form.requestSubmit()">
+                        </td>
+                        <td>
+                            <span class="pname">
+                                {% if r.joint %}
+                                    {% for p in participants %}{{ avatar(p.id, p.name) }}{% endfor %}
+                                {% else %}
+                                    {{ avatar(r.payerId, r.payerName) }}
+                                {% endif %}
+                                <select form="{{ f }}" class="select-bare" name="payer" aria-label="{{ 'Кто платит'|trans }}" onchange="this.form.requestSubmit()">
+                                    {% for p in participants %}
+                                        <option value="{{ p.id }}" {{ p.id == r.payerId ? 'selected' }}>{{ p.name }}</option>
+                                    {% endfor %}
+                                    {% if participants|length > 1 %}
+                                        <option value="both" {{ r.joint ? 'selected' }}>{{ 'Оба пополам'|trans }}</option>
+                                    {% endif %}
+                                </select>
+                            </span>
+                        </td>
+                        <td>
+                            <select form="{{ f }}" class="select-bare split-owner" name="split" aria-label="{{ 'Чья трата'|trans }}" onchange="this.form.requestSubmit()"
+                                    {{ r.joint ? 'disabled' }}>
+                                <option value="equal" {{ r.split.value == 'equal' ? 'selected' }}>{{ 'общая'|trans }}</option>
+                                {% if not r.joint %}
+                                    {% for p in participants %}
+                                        {% if p.id == r.payerId %}
+                                            <option value="payer_only" {{ r.split.value == 'payer_only' ? 'selected' }}>{{ p.name }}</option>
+                                        {% elseif participants|length == 2 %}
+                                            <option value="other_only" {{ r.split.value == 'other_only' ? 'selected' }}>{{ p.name }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                            {% if r.joint %}<input form="{{ f }}" type="hidden" name="split" value="equal">{% endif %}
+                        </td>
+                        <td class="r num">
+                            <span class="amount-edit">
+                                <input form="{{ f }}" class="cell-edit cell-edit--amount num" name="amount" value="{{ r.amount|money_number }}"
+                                       maxlength="20" inputmode="decimal" aria-label="{{ 'Сумма'|trans }}" onchange="this.form.requestSubmit()">
+                                <select form="{{ f }}" class="select-bare amount-edit__currency" name="currency" aria-label="{{ 'Валюта суммы'|trans }}" onchange="this.form.requestSubmit()">
+                                    {% if display_choices()|filter(c => c.code == r.amount.currency.code) is empty %}
+                                        <option value="{{ r.amount.currency.code }}" selected>{{ r.amount.currency.code }}</option>
+                                    {% endif %}
+                                    {% for c in display_choices() %}
+                                        <option value="{{ c.code }}" {{ c.code == r.amount.currency.code ? 'selected' }}>{{ c.code }}</option>
+                                    {% endfor %}
+                                </select>
+                            </span>
+                            {% if r.joint %}<span class="hint">{{ 'по половине на каждого'|trans }}</span>{% endif %}
+                        </td>
+                        <td class="num muted">{{ r.active ? r.nextDate|date('d.m.Y') : 'на паузе'|trans }}</td>
                         <td class="r actions-cell">
+                            <noscript><button class="link" type="submit" form="{{ f }}">{{ 'ок'|trans }}</button></noscript>
                             <form method="post" action="{{ path('web_recurring_active', {id: r.id}) }}" class="inline">
                                 <input type="hidden" name="active" value="{{ r.active ? '0' : '1' }}">
-                                <button class="link" type="submit">{{ r.active ? 'пауза' : 'включить' }}</button>
+                                <button class="link" type="submit">{{ r.active ? 'пауза'|trans : 'включить'|trans }}</button>
                             </form>
                             <form method="post" action="{{ path('web_recurring_delete', {id: r.id}) }}" class="inline"
-                                  onsubmit="return confirm('Удалить регулярную трату? Уже записанные траты останутся.')">
-                                <button class="link link--danger" type="submit">удалить</button>
+                                  onsubmit="return confirm({{ 'Удалить регулярную трату? Уже записанные траты останутся.'|trans|json_encode }})">
+                                <button class="link link--danger" type="submit">{{ 'удалить'|trans }}</button>
                             </form>
                         </td>
                     </tr>
+                    {% if rowError %}
+                        <tr class="ledger__error"><td colspan="7"><p class="error" role="alert">{{ 'Не сохранено: %reason%'|trans({'%reason%': rowError|message}) }}</p></td></tr>
+                    {% endif %}
                 {% endfor %}
                 </tbody>
             </table>

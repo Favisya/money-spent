@@ -1,0 +1,4 @@
+/* Localized Info.plist values; the bundle folder and executable names do not change. */
+"CFBundleName" = "Money Spent";
+"CFBundleDisplayName" = "Money Spent";
+"NSLocalNetworkUsageDescription" = "To keep shared books with another Mac on your home network.";

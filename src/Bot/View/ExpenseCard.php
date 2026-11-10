@@ -17,6 +17,8 @@ final readonly class ExpenseCard
 {
     public function __construct(
         private MoneyFormatter $money,
+        private BotTranslator $translator,
+        private DateText $dates,
     ) {
     }
 
@@ -26,13 +28,13 @@ final readonly class ExpenseCard
             sprintf(
                 '✅ <b>%s</b> · %s',
                 $this->money->format($expense->amount),
-                Html::escape($expense->categoryTitle),
+                Html::escape($this->translator->text($expense->categoryTitle)),
             ),
             sprintf(
-                '📅 %s · платил(а) %s · %s',
-                $expense->spentAt->format('d.m.Y'),
-                Html::escape($expense->payerName),
-                self::splitLabel($expense->split),
+                '📅 %s · %s · %s',
+                $this->dates->day($expense->spentAt),
+                $this->translator->text('платил(а) %name%', ['%name%' => Html::escape($expense->payerName)]),
+                $this->translator->text(self::splitLabel($expense->split)),
             ),
         ];
 
@@ -54,8 +56,8 @@ final readonly class ExpenseCard
 
         if ($candidates !== []) {
             $rows[] = array_map(
-                static fn (Category $category): InlineButton => new InlineButton(
-                    '❓ ' . $category->title,
+                fn (Category $category): InlineButton => new InlineButton(
+                    '❓ ' . $this->translator->text($category->title),
                     SetCategoryCallback::data($expense->id, $category->id),
                 ),
                 $candidates,
@@ -63,8 +65,8 @@ final readonly class ExpenseCard
         }
 
         $rows[] = [
-            new InlineButton('✏️ Категория', ChangeCategoryCallback::data($expense->id)),
-            new InlineButton('🗑 Удалить', DeleteExpenseCallback::data($expense->id)),
+            new InlineButton('✏️ ' . $this->translator->text('Категория'), ChangeCategoryCallback::data($expense->id)),
+            new InlineButton('🗑 ' . $this->translator->text('Удалить'), DeleteExpenseCallback::data($expense->id)),
         ];
 
         return new InlineKeyboard($rows);
@@ -72,16 +74,18 @@ final readonly class ExpenseCard
 
     public function deleted(ExpenseView $expense): string
     {
-        return '<s>' . $this->text($expense) . "</s>\n🗑 Удалено";
+        return '<s>' . $this->text($expense) . "</s>\n🗑 " . $this->translator->text('Удалено');
     }
 
     private function conversionLine(ExpenseView $expense): string
     {
         if ($expense->amountBase === null) {
-            return sprintf(
-                '⚠️ Курса %s на %s пока нет — пересчитаю, когда он появится.',
-                $expense->amount->currency->code,
-                $expense->spentAt->format('d.m.Y'),
+            return '⚠️ ' . $this->translator->text(
+                'Курса %currency% на %date% пока нет — пересчитаю, когда он появится.',
+                [
+                    '%currency%' => $expense->amount->currency->code,
+                    '%date%'     => $this->dates->day($expense->spentAt),
+                ],
             );
         }
 

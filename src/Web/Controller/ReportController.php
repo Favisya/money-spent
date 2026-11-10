@@ -13,6 +13,7 @@ use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 final readonly class ReportController
 {
@@ -20,6 +21,7 @@ final readonly class ReportController
         private PdfReport $pdf,
         private CsvExporter $csv,
         private LocalCalendar $calendar,
+        private TranslatorInterface $translator,
     ) {
     }
 
@@ -30,7 +32,7 @@ final readonly class ReportController
 
         return $this->download(
             $this->pdf->render($period),
-            sprintf('otchet-%s.pdf', $period->key()),
+            $this->translator->trans('otchet-%month%.pdf', ['%month%' => $period->key()]),
             'application/pdf',
         );
     }

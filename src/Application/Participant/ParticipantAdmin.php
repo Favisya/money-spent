@@ -32,7 +32,7 @@ final readonly class ParticipantAdmin
         $telegramId = trim($telegramId);
 
         if ($name === '' || mb_strlen($name) > self::NAME_LENGTH) {
-            throw new UserError(sprintf('Имя нужно от 1 до %d символов.', self::NAME_LENGTH));
+            throw new UserError('Имя нужно от 1 до %max% символов.', ['%max%' => self::NAME_LENGTH]);
         }
 
         if ($telegramId !== '' && preg_match('/^[1-9]\d{0,18}$/', $telegramId) !== 1) {

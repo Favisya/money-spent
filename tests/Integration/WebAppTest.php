@@ -23,6 +23,8 @@ use Symfony\Component\HttpKernel\KernelInterface;
 final class WebAppTest extends KernelTestCase
 {
     private const string ORIGIN = 'http://localhost';
+    /** Request::create() pretends to be an English browser; the app is used in Russian. */
+    private const array BROWSER = ['HTTP_ACCEPT_LANGUAGE' => 'ru-RU,ru;q=0.9'];
 
     private KernelInterface $app;
     private Connection $db;
@@ -144,6 +146,244 @@ final class WebAppTest extends KernelTestCase
         self::assertStringContainsString('name="payer" aria-label="Кто платил"', $page);
         self::assertStringContainsString('<option value="EUR" selected>EUR</option>', $page);
         self::assertStringContainsString('value="09.10"', $page);
+    }
+
+    public function testAnyCurrencyCanBeAddedHiddenAndShownAgain(): void
+    {
+        $this->people();
+
+        $added = $this->post('/currencies', ['code' => 'gel', 'aliases' => 'Лари, ₾']);
+        self::assertSame('/currencies?ok=added&code=GEL', $added->headers->get('Location'));
+        self::assertSame(
+            ['exponent' => 2, 'aliases' => '["лари", "₾"]', 'is_active' => true],
+            $this->db->fetchAssociative("SELECT exponent, aliases::text, is_active FROM currency WHERE code = 'GEL'"),
+        );
+
+        $this->post('/expenses', ['text' => '50 лари хачапури', 'payer' => $this->anna]);
+        self::assertSame('GEL', $this->db->fetchOne('SELECT currency FROM expense WHERE id = 1'));
+        self::assertStringContainsString('value="GEL" aria-pressed', (string) $this->get('/')->getContent());
+
+        $taken = $this->post('/currencies/GEL', ['aliases' => 'лари, евро']);
+        self::assertSame(422, $taken->getStatusCode());
+        self::assertStringContainsString('Слово «евро» уже означает EUR.', (string) $taken->getContent());
+
+        self::assertSame(422, $this->post('/currencies', ['code' => 'ZZZ'])->getStatusCode());
+        self::assertSame(422, $this->post('/currencies/AMD/visibility', ['active' => '0'])->getStatusCode());
+
+        $this->post('/currencies/GEL/visibility', ['active' => '0']);
+        $page = (string) $this->get('/?m=2026-11')->getContent();
+        self::assertStringNotContainsString('value="GEL" aria-pressed', $page);
+        self::assertStringContainsString('<option value="GEL" selected>GEL</option>', $page);
+        self::assertStringContainsString('value="50.00"', $page);
+
+        $this->post('/expenses', ['text' => '10 лари', 'payer' => $this->anna]);
+        self::assertSame(1, (int) $this->db->fetchOne("SELECT COUNT(*) FROM expense WHERE currency = 'GEL'"));
+
+        $this->post('/currencies', ['code' => 'GEL', 'aliases' => '']);
+        self::assertSame(
+            ['aliases' => '["лари", "₾"]', 'is_active' => true],
+            $this->db->fetchAssociative("SELECT aliases::text, is_active FROM currency WHERE code = 'GEL'"),
+        );
+        self::assertStringContainsString('грузинский лари', (string) $this->get('/currencies')->getContent());
+    }
+
+    public function testLanguageComesFromTheSwitchOrTheBrowser(): void
+    {
+        $this->people();
+
+        self::assertStringContainsString('<html lang="ru">', (string) $this->get('/')->getContent());
+        self::assertStringContainsString(
+            '<html lang="en">',
+            (string) $this->get('/', ['HTTP_ACCEPT_LANGUAGE' => 'en-US,en;q=0.9'])->getContent(),
+        );
+
+        $chosen = $this->post('/language', ['lang' => 'en', 'back' => '/categories']);
+        self::assertSame('/categories', $chosen->headers->get('Location'));
+        self::assertSame('en', $chosen->headers->getCookies()[0]->getValue());
+
+        $page = (string) $this->get('/', [], ['lang' => 'en'])->getContent();
+        self::assertStringContainsString('<html lang="en">', $page);
+        self::assertStringContainsString('aria-label="Language"', $page);
+
+        $ignored = $this->post('/language', ['lang' => 'xx', 'back' => '//evil.example']);
+        self::assertSame('/', $ignored->headers->get('Location'));
+        self::assertSame([], $ignored->headers->getCookies());
+    }
+
+    public function testPagesAreFullyInEnglish(): void
+    {
+        $this->people();
+        $this->rate('2026-11-09', 'EUR', '403.36');
+        $this->post('/expenses', ['text' => '17000 продукты', 'payer' => $this->anna]);
+        $this->post('/expenses', ['text' => '25 eur netflix', 'payer' => $this->boris, 'whose' => 'payer_only']);
+        $this->post('/settlements', ['from' => $this->boris, 'amount' => '2000']);
+        $this->post('/recurring', ['text' => '25 eur netflix', 'payer' => $this->anna, 'day' => 20]);
+
+        $expected = [
+            '/' => ['November 2026', 'New expense', 'Expenses <span', 'Groceries', 'Subscriptions', 'Total for the month',
+                'Борис’s own', 'Nov', 'Last 12 months', 'Transfers', 'Delete this expense?'],
+            '/analytics'    => ['Where the money goes', 'Shared', 'Groceries', 'Mon', 'Sun', 'Largest expenses'],
+            '/categories'   => ['Keywords', 'value="Groceries"', 'Utilities', 'Fuel', 'Other', 'default'],
+            '/currencies'   => ['Words for the entry line', 'main', 'Hide', 'Currency'],
+            '/recurring'    => ['Recurring expenses', 'Subscriptions', 'Day of the month', 'Payer’s own'],
+            '/import'       => ['Import a note', 'What the sign before the amount means'],
+            '/participants' => ['Badge color', 'title="orange"', 'Telegram id'],
+            '/sharing'      => ['Connection code', 'Connected Macs', 'Nobody yet.'],
+        ];
+
+        foreach ($expected as $uri => $texts) {
+            $page = (string) $this->get($uri, [], ['lang' => 'en'])->getContent();
+
+            foreach ($texts as $text) {
+                self::assertStringContainsStringIgnoringCase($text, $page, $uri);
+            }
+
+            self::assertSame([], $this->russianLeftovers($page), $uri);
+        }
+
+        $russian = (string) $this->get('/')->getContent();
+        self::assertStringContainsString('Ноябрь 2026', $russian);
+        self::assertStringContainsString('>ноя<', $russian);
+        self::assertStringContainsString('Продукты', $russian);
+    }
+
+    public function testErrorsAndCountsAreTranslated(): void
+    {
+        $this->people();
+        $english = ['lang' => 'en'];
+        $this->post('/expenses', ['text' => '17000 продукты', 'payer' => $this->anna]);
+
+        $refused = $this->post('/expenses/1/amount', ['amount' => '18,555', 'currency' => 'EUR'], cookies: $english);
+        self::assertSame(422, $refused->getStatusCode());
+        self::assertStringContainsString(
+            'Not saved: EUR has at most 2 decimal places, and the amount can’t be that large.',
+            (string) $refused->getContent(),
+        );
+
+        $parse = (string) $this->post('/expenses', ['text' => '10 31.02', 'payer' => $this->anna], cookies: $english)
+            ->getContent();
+        self::assertStringContainsString('Couldn’t read the date “31.02”.', $parse);
+
+        $form    = ['text' => "17000 продукты\n9700 доставка\n31.02", 'payer' => $this->anna, 'date' => '2026-11-10'];
+        $preview = (string) $this->post('/import', $form, cookies: $english)->getContent();
+        self::assertStringContainsString('1 line not understood', $preview);
+        self::assertStringContainsString('Couldn’t read the date “31.02”', $preview);
+
+        $one = (string) $this->post('/import/confirm', $form + ['lines' => [1]], cookies: $english)->getContent();
+        self::assertStringContainsString('Recorded 1 expense.', $one);
+        $again = (string) $this->post('/import/confirm', $form + ['lines' => [1, 2]], cookies: $english)->getContent();
+        self::assertStringContainsString('Recorded 1 expense, skipped 1 already imported.', $again);
+        $coffee = [...$form, 'text' => "500 кофе\n600 кофе", 'lines' => [1, 2]];
+        $two    = (string) $this->post('/import/confirm', $coffee, cookies: $english)->getContent();
+        self::assertStringContainsString('Recorded 2 expenses.', $two);
+    }
+
+    /**
+     * Cyrillic words a reader of the English page would see, apart from the participants' names.
+     *
+     * @return list<string>
+     */
+    private function russianLeftovers(string $html): array
+    {
+        $html  = (string) preg_replace('#<span class="avatar[^"]*"[^>]*>[^<]*</span>#u', '', $html);
+        $shown = [strip_tags($html)];
+
+        preg_match_all('/\s(?:title|aria-label|placeholder|data-tip|alt)="([^"]*)"/u', $html, $attributes);
+        array_push($shown, ...$attributes[1]);
+
+        $text = str_replace(['Анна', 'Борис'], '', html_entity_decode(implode("\n", $shown), ENT_QUOTES | ENT_HTML5));
+        preg_match_all('/\p{Cyrillic}+/u', $text, $words);
+
+        return array_values(array_unique($words[0]));
+    }
+
+    public function testBothPayHalfEach(): void
+    {
+        $this->people();
+
+        $added = $this->post('/expenses', ['text' => '1001 продукты', 'payer' => 'both', 'whose' => 'payer_only']);
+        self::assertSame('/?m=2026-11&ok=joint&id=1', $added->headers->get('Location'));
+        self::assertSame('both', $added->headers->getCookies()[0]->getValue());
+        self::assertSame(
+            [
+                ['payer_id' => $this->anna, 'amount_minor' => 501, 'split' => 'equal'],
+                ['payer_id' => $this->boris, 'amount_minor' => 500, 'split' => 'equal'],
+            ],
+            $this->db->fetchAllAssociative('SELECT payer_id, amount_minor, split FROM expense ORDER BY id'),
+        );
+
+        $page = (string) $this->get('/', [], ['payer' => 'both'])->getContent();
+        self::assertStringContainsString('<option value="both" selected>Оба пополам</option>', $page);
+        self::assertStringContainsString('Никто никому не должен', $page);
+        self::assertSame(200, $this->get('/import', [], ['payer' => 'both'])->getStatusCode());
+        self::assertSame(200, $this->get('/recurring', [], ['payer' => 'both'])->getStatusCode());
+    }
+
+    public function testRecurringRowsAreEditedInPlace(): void
+    {
+        $this->people();
+        $groceries = (int) $this->db->fetchOne("SELECT id FROM category WHERE code = 'groceries'");
+        $this->post('/recurring', ['text' => '7,5 usd spotify', 'payer' => $this->anna, 'day' => 5, 'whose' => 'payer_only']);
+
+        $row = [
+            'day'      => 20,
+            'amount'   => '8.99',
+            'currency' => 'EUR',
+            'payer'    => (string) $this->boris,
+            'category' => $groceries,
+            'split'    => 'payer_only',
+            'note'     => '  семья ',
+        ];
+        $saved = $this->post('/recurring/1', $row);
+        self::assertSame('/recurring?ok=saved&id=1', $saved->headers->get('Location'));
+        self::assertSame(
+            [
+                'payer_id'     => $this->boris,
+                'amount_minor' => 899,
+                'currency'     => 'EUR',
+                'category_id'  => $groceries,
+                'split'        => 'other_only',
+                'note'         => 'семья',
+                'day_of_month' => 20,
+                'next_month'   => '2026-12-01',
+            ],
+            $this->db->fetchAssociative(
+                'SELECT payer_id, amount_minor, currency, category_id, split, note, day_of_month, next_month'
+                . ' FROM recurring_expense',
+            ),
+        );
+
+        foreach ([['amount' => 'сто'], ['payer' => '999'], ['currency' => 'XYZ'], ['day' => 40]] as $broken) {
+            $refused = $this->post('/recurring/1', [...$row, ...$broken]);
+            self::assertSame(422, $refused->getStatusCode(), (string) json_encode($broken));
+            self::assertStringContainsString('Не сохранено:', (string) $refused->getContent());
+        }
+
+        $this->post('/recurring/1', [...$row, 'payer' => 'both', 'day' => 1]);
+        self::assertSame(
+            ['payer_id' => null, 'split' => 'equal'],
+            $this->db->fetchAssociative('SELECT payer_id, split FROM recurring_expense'),
+        );
+        self::assertStringContainsString('<option value="both" selected>', (string) $this->get('/recurring')->getContent());
+
+        $this->db->executeStatement("UPDATE recurring_expense SET next_month = '2026-11-01'");
+        $command = new CommandTester((new Application($this->app))->find('app:recurring:run'));
+        $command->execute([]);
+        self::assertSame(
+            [
+                ['payer_id' => $this->anna, 'amount_minor' => 450, 'spent_at' => '2026-11-01'],
+                ['payer_id' => $this->boris, 'amount_minor' => 449, 'spent_at' => '2026-11-01'],
+            ],
+            $this->db->fetchAllAssociative(
+                'SELECT payer_id, amount_minor, spent_at FROM expense WHERE recurring_id = 1 ORDER BY id',
+            ),
+        );
+
+        $command->execute([]);
+        self::assertSame(2, (int) $this->db->fetchOne('SELECT COUNT(*) FROM expense WHERE recurring_id = 1'));
+
+        $this->post('/recurring', ['text' => '1000 интернет', 'payer' => 'both', 'day' => 25]);
+        self::assertNull($this->db->fetchOne('SELECT payer_id FROM recurring_expense WHERE id = 2'));
     }
 
     public function testInvalidExpenseIsExplained(): void
@@ -819,18 +1059,25 @@ final class WebAppTest extends KernelTestCase
      */
     private function get(string $uri, array $server = [], array $cookies = []): Response
     {
-        $request = Request::create($uri, 'GET', cookies: $cookies, server: $server);
+        $request = Request::create($uri, 'GET', cookies: $cookies, server: [...self::BROWSER, ...$server]);
 
         return $this->app->handle($request, HttpKernelInterface::MAIN_REQUEST, true);
     }
 
     /**
      * @param array<string, mixed>       $data
-     * @param array<string, string>|null $server null means a same-origin browser post
+     * @param array<string, string>|null $server  null means a same-origin browser post
+     * @param array<string, string>      $cookies
      */
-    private function post(string $uri, array $data, ?array $server = null): Response
+    private function post(string $uri, array $data, ?array $server = null, array $cookies = []): Response
     {
-        $request = Request::create($uri, 'POST', $data, server: $server ?? ['HTTP_ORIGIN' => self::ORIGIN]);
+        $request = Request::create(
+            $uri,
+            'POST',
+            $data,
+            $cookies,
+            server: [...self::BROWSER, ...($server ?? ['HTTP_ORIGIN' => self::ORIGIN])],
+        );
 
         return $this->app->handle($request, HttpKernelInterface::MAIN_REQUEST, true);
     }

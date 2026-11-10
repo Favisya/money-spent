@@ -1,0 +1,90 @@
+/* Texts of the native wrapper. Every key must also be in ru.lproj/Localizable.strings. */
+
+"app.name" = "Money Spent";
+
+/* Menus */
+"menu.about" = "About Money Spent";
+"menu.allowConnections" = "Allow Connections";
+"menu.sharing" = "Sharing…";
+"menu.connect" = "Connect to Another Mac…";
+"menu.disconnect" = "Disconnect from Other Mac…";
+"menu.openDataFolder" = "Open Data Folder";
+"menu.hide" = "Hide Money Spent";
+"menu.quit" = "Quit Money Spent";
+"menu.edit" = "Edit";
+"menu.undo" = "Undo";
+"menu.redo" = "Redo";
+"menu.cut" = "Cut";
+"menu.copy" = "Copy";
+"menu.paste" = "Paste";
+"menu.selectAll" = "Select All";
+"menu.view" = "View";
+"menu.overview" = "Overview";
+"menu.analytics" = "Analytics";
+"menu.import" = "Import";
+"menu.back" = "Back";
+"menu.forward" = "Forward";
+"menu.reload" = "Reload";
+"menu.zoomIn" = "Zoom In";
+"menu.zoomOut" = "Zoom Out";
+"menu.actualSize" = "Actual Size";
+"menu.window" = "Window";
+"menu.minimize" = "Minimize";
+"menu.close" = "Close";
+
+/* Alerts */
+"button.yes" = "Yes";
+"button.cancel" = "Cancel";
+"connect.title" = "Connect to another Mac?";
+"connect.detail" = "Bookkeeping on this Mac will stop, but the data stays. You can come back from the same menu.";
+"disconnect.title" = "Disconnect from this Mac?";
+"disconnect.detail" = "You can then pick another Mac or keep the books here.";
+"alert.sharingFailed" = "Could not switch sharing";
+"alert.saveFailed" = "Could not save the file";
+
+/* Startup status */
+"status.preparingDatabase" = "Preparing the database…";
+"status.updatingApp" = "Updating the app…";
+"status.starting" = "Starting…";
+"status.stopping" = "Stopping…";
+
+/* Startup steps and their errors: "<step>: <detail>" */
+"step.createDatabase" = "Creating the database";
+"step.startDatabase" = "Starting the database";
+"step.database" = "Database";
+"step.migrations" = "Migrations";
+"step.referenceData" = "Reference data";
+"step.cache" = "Cache";
+"step.webServer" = "Web server";
+"step.port" = "Port";
+"error.serverStopped" = "stopped while starting, see logs/server.log";
+"error.serverTimeout" = "did not respond within 15 seconds, see logs/server.log";
+"error.exitCode" = "exit code %d";
+"error.noSocket" = "no socket";
+"error.portBind" = "could not take a port";
+"error.portLookup" = "could not read the port";
+
+/* Startup error page */
+"error.title" = "Could not start";
+"error.logs" = "Logs:";
+"error.hint" = "Quit the app and open it again. If it happens again, send the logs.";
+
+/* Chooser page */
+"chooser.title" = "Where to keep the books?";
+"chooser.local" = "Here, on this Mac";
+"chooser.orConnect" = "or connect to another Mac";
+"chooser.searching" = "Looking for Macs with sharing on in this network…";
+"chooser.addressPlaceholder" = "address, e.g. http://dima-mac.local:8765";
+"chooser.connect" = "Connect";
+"chooser.hint" = "On that Mac: Money Spent → Allow Connections, then Sharing → “Show code”.";
+"chooser.badAddress" = "Could not read the address. Example: http://dima-mac.local:8765";
+
+/* Offline page; %@ is the host name of the other Mac */
+"offline.title" = "%@ is not responding";
+"offline.thatMac" = "That Mac";
+"offline.hint" = "Check that Money Spent is open there with “Allow Connections” on, and that you are on the same network.";
+"offline.retry" = "Try Again";
+"offline.choose" = "Choose Another Mac";
+
+/* Name other Macs see in the chooser; %@ is this Mac's name */
+"bonjour.serviceName" = "Money Spent — %@";

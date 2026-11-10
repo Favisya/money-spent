@@ -7,6 +7,8 @@ namespace App\Bot\Command;
 use App\Application\Undo\UndoService;
 use App\Bot\BotContext;
 use App\Bot\Reply\TextReply;
+use App\Bot\View\BotTranslator;
+use App\Bot\View\DateText;
 use App\Bot\View\Html;
 use App\Bot\View\MoneyFormatter;
 use App\Infrastructure\Persistence\LedgerTable;
@@ -16,6 +18,8 @@ final readonly class UndoCommand implements BotCommand
     public function __construct(
         private UndoService $undo,
         private MoneyFormatter $money,
+        private BotTranslator $translator,
+        private DateText $dates,
     ) {
     }
 
@@ -34,14 +38,20 @@ final readonly class UndoCommand implements BotCommand
         $entry = $this->undo->undoLast($context->participant);
 
         if ($entry === null) {
-            return [new TextReply($context->chatId, 'Нечего удалять.')];
+            return [new TextReply($context->chatId, $this->translator->text('Нечего удалять.'))];
         }
 
         $text = sprintf(
-            '↩️ Удалил %s: %s от %s%s',
-            $entry->table === LedgerTable::Expense ? 'трату' : 'перевод',
-            $this->money->format($entry->amount),
-            $entry->date->format('d.m.Y'),
+            '↩️ %s%s',
+            $this->translator->text(
+                $entry->table === LedgerTable::Expense
+                    ? 'Удалил трату: %amount% от %date%'
+                    : 'Удалил перевод: %amount% от %date%',
+                [
+                    '%amount%' => $this->money->format($entry->amount),
+                    '%date%'   => $this->dates->day($entry->date),
+                ],
+            ),
             $entry->note === null ? '' : ' (' . Html::escape($entry->note) . ')',
         );
 

@@ -21,7 +21,7 @@ final readonly class AnalysisPeriod
         }
 
         if ($this->monthCount() > self::MAX_MONTHS) {
-            throw new UserError(sprintf('Период длиннее %d месяцев.', self::MAX_MONTHS));
+            throw new UserError('Период длиннее %max% месяцев.', ['%max%' => self::MAX_MONTHS]);
         }
     }
 

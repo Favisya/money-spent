@@ -60,7 +60,7 @@ final readonly class ExpenseEditor
         $this->findActive($expenseId);
 
         if (mb_strlen(trim($note)) > NoteText::MAX_LENGTH) {
-            throw new UserError(sprintf('Заметка — до %d символов.', NoteText::MAX_LENGTH));
+            throw new UserError('Заметка — до %max% символов.', ['%max%' => NoteText::MAX_LENGTH]);
         }
 
         $this->expenses->updateNote($expenseId, NoteText::clean($note));

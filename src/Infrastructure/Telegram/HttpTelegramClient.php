@@ -99,6 +99,20 @@ final readonly class HttpTelegramClient implements TelegramClient, TelegramAdmin
         $this->call('deleteWebhook', ['json' => []]);
     }
 
+    public function setMyCommands(array $commands, ?string $languageCode = null): void
+    {
+        $list = [];
+
+        foreach ($commands as $command => $description) {
+            $list[] = ['command' => $command, 'description' => $description];
+        }
+
+        $this->call('setMyCommands', ['json' => array_filter([
+            'commands'      => $list,
+            'language_code' => $languageCode,
+        ], static fn (mixed $value): bool => $value !== null)]);
+    }
+
     /**
      * @return array<string, mixed>
      */

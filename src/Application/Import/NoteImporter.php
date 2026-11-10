@@ -228,9 +228,9 @@ final readonly class NoteImporter
 
             $parsed = $parser->parse($line, $today);
         } catch (UserError $exception) {
-            return new ImportRow($lineNumber, $line, ImportRowKind::Error, error: $exception->getMessage());
+            return new ImportRow($lineNumber, $line, ImportRowKind::Error, error: $exception);
         } catch (ExpenseParseException $exception) {
-            return new ImportRow($lineNumber, $line, ImportRowKind::Error, error: $this->errors->message($exception));
+            return new ImportRow($lineNumber, $line, ImportRowKind::Error, error: $this->errors->error($exception));
         }
 
         $parsed = $parsed->hasExplicitDate ? $parsed : $parsed->withSpentAt($currentDate);
@@ -310,13 +310,13 @@ final readonly class NoteImporter
     private function lines(string $text): array
     {
         if (mb_strlen($text) > self::MAX_CHARS) {
-            throw new UserError(sprintf('Слишком большой текст: максимум %d символов за раз.', self::MAX_CHARS));
+            throw new UserError('Слишком большой текст: максимум %max% символов за раз.', ['%max%' => self::MAX_CHARS]);
         }
 
         $lines = preg_split('/\R/u', $text) ?: [];
 
         if (count($lines) > self::MAX_LINES) {
-            throw new UserError(sprintf('Слишком много строк: максимум %d за раз.', self::MAX_LINES));
+            throw new UserError('Слишком много строк: максимум %max% за раз.', ['%max%' => self::MAX_LINES]);
         }
 
         return $lines;

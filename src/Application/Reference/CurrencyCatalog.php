@@ -7,8 +7,12 @@ namespace App\Application\Reference;
 use App\Domain\Money\Currency;
 use App\Infrastructure\Persistence\CurrencyRepository;
 use InvalidArgumentException;
+use Symfony\Contracts\Service\ResetInterface;
 
-final class CurrencyCatalog
+/**
+ * Currencies the user keeps. Hidden ones still format old entries but are not offered or parsed.
+ */
+final class CurrencyCatalog implements ResetInterface
 {
     /** @var array<string, CurrencyDefinition>|null */
     private ?array $definitions = null;
@@ -43,7 +47,7 @@ final class CurrencyCatalog
         $foreign = [];
 
         foreach ($this->definitions() as $code => $definition) {
-            if ($code !== $this->baseCurrencyCode) {
+            if ($code !== $this->baseCurrencyCode && $definition->active) {
                 $foreign[] = $definition->currency;
             }
         }
@@ -59,6 +63,10 @@ final class CurrencyCatalog
         $aliases = [];
 
         foreach ($this->definitions() as $code => $definition) {
+            if (!$definition->active) {
+                continue;
+            }
+
             $aliases[mb_strtolower($code)] = $definition->currency;
 
             foreach ($definition->aliases as $alias) {
@@ -67,6 +75,24 @@ final class CurrencyCatalog
         }
 
         return $aliases;
+    }
+
+    /**
+     * @return list<CurrencyDefinition> shown and hidden
+     */
+    public function all(): array
+    {
+        return array_values($this->definitions());
+    }
+
+    public function isBase(string $code): bool
+    {
+        return $code === $this->baseCurrencyCode;
+    }
+
+    public function reset(): void
+    {
+        $this->definitions = null;
     }
 
     /**
@@ -80,7 +106,7 @@ final class CurrencyCatalog
 
         $this->definitions = [];
 
-        foreach ($this->repository->findActive() as $definition) {
+        foreach ($this->repository->findAll() as $definition) {
             $this->definitions[$definition->currency->code] = $definition;
         }
 

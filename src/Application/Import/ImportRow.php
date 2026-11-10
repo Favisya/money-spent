@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Import;
 
 use App\Application\Transfer\TransferIntent;
+use App\Application\UserError;
 use App\Domain\Parsing\ParsedExpense;
 use DateTimeImmutable;
 
@@ -18,7 +19,7 @@ final readonly class ImportRow
         public ?string $categoryTitle = null,
         public ?int $payerId = null,
         public ?DateTimeImmutable $date = null,
-        public ?string $error = null,
+        public ?UserError $error = null,
         public ?TransferIntent $transfer = null,
     ) {
     }

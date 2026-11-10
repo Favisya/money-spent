@@ -45,7 +45,7 @@ final class PairController extends AbstractController
         } catch (UserError $exception) {
             return $this->render(
                 'web/pair.html.twig',
-                ['error' => $exception->getMessage(), 'name' => $name],
+                ['error' => $exception, 'name' => $name],
                 new Response(status: Response::HTTP_UNPROCESSABLE_ENTITY),
             );
         }

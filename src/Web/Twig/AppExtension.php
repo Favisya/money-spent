@@ -8,41 +8,53 @@ use App\Application\Analytics\Owner;
 use App\Application\Rates\RateSourceChoice;
 use App\Application\Reference\CurrencyCatalog;
 use App\Application\Report\MonthPeriod;
+use App\Application\UserError;
 use App\Bot\View\MoneyFormatter;
-use App\Bot\View\MonthNames;
 use App\Domain\Money\Currency;
 use App\Domain\Money\Money;
 use App\Domain\Split\SplitType;
 use App\Web\Currency\DisplayCurrency;
 use App\Web\Currency\DisplayQuote;
+use App\Web\Locale\CalendarNames;
+use App\Web\Locale\LanguageListener;
 use App\Web\People\PeoplePalette;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Twig\Attribute\AsTwigFilter;
 use Twig\Attribute\AsTwigFunction;
 
 final readonly class AppExtension
 {
-    private const array SHORT_MONTHS = [
-        1  => 'янв',
-        2  => 'фев',
-        3  => 'мар',
-        4  => 'апр',
-        5  => 'май',
-        6  => 'июн',
-        7  => 'июл',
-        8  => 'авг',
-        9  => 'сен',
-        10 => 'окт',
-        11 => 'ноя',
-        12 => 'дек',
-    ];
-
     public function __construct(
         private MoneyFormatter $money,
-        private MonthNames $months,
+        private CalendarNames $calendar,
         private CurrencyCatalog $currencies,
         private DisplayCurrency $display,
         private PeoplePalette $people,
+        private TranslatorInterface $translator,
+        private LanguageListener $languages,
     ) {
+    }
+
+    /**
+     * A text meant for the user: a Russian source string, or a UserError with its parameters, in the page language.
+     */
+    #[AsTwigFilter('message')]
+    public function message(string|UserError|null $message): string
+    {
+        return match (true) {
+            $message === null             => '',
+            $message instanceof UserError => $this->translator->trans($message->key, $message->parameters),
+            default                       => $this->translator->trans($message),
+        };
+    }
+
+    /**
+     * @return list<string>
+     */
+    #[AsTwigFunction('languages')]
+    public function languages(): array
+    {
+        return $this->languages->languages();
     }
 
     #[AsTwigFilter('money')]
@@ -165,23 +177,43 @@ final readonly class AppExtension
     #[AsTwigFilter('month_label')]
     public function monthLabel(MonthPeriod $period): string
     {
-        return $this->months->label($period);
+        return $this->calendar->month($period);
     }
 
     #[AsTwigFilter('month_short')]
     public function monthShort(MonthPeriod $period): string
     {
-        return self::SHORT_MONTHS[$period->month];
+        return $this->calendar->shortMonth($period);
+    }
+
+    /**
+     * @return array<int, string> ISO day number (1 is Monday) => short weekday name
+     */
+    #[AsTwigFunction('weekdays')]
+    public function weekdays(): array
+    {
+        return $this->calendar->weekdays();
+    }
+
+    /**
+     * "Общие" or "Анна лично" in the page language.
+     */
+    #[AsTwigFilter('owner_label')]
+    public function ownerLabel(Owner $owner): string
+    {
+        return $owner->isShared()
+            ? $this->translator->trans('Общие')
+            : $this->translator->trans('%name% лично', ['%name%' => $owner->label]);
     }
 
     #[AsTwigFilter('split_label')]
     public function splitLabel(SplitType $split): string
     {
-        return match ($split) {
+        return $this->translator->trans(match ($split) {
             SplitType::Equal     => 'пополам',
             SplitType::PayerOnly => 'личное',
             SplitType::OtherOnly => 'за другого',
-        };
+        });
     }
 
     private function toBase(Money|int $amount): Money

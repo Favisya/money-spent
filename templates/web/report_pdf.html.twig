@@ -1,7 +1,7 @@
 {% set d = dashboard %}
 {% set report = d.report %}
 <!doctype html>
-<html lang="ru">
+<html lang="{{ app.request ? app.request.locale : 'ru' }}">
 <head>
 <meta charset="utf-8">
 <style>
@@ -31,17 +31,17 @@
 </style>
 </head>
 <body>
-<h1>Траты · {{ d.period|month_label }}</h1>
-<div class="muted">Траты пересчитаны в AMD по курсу ЦБ Армении на дату каждой траты{% if display_currency().code != "AMD" %}, итоги показаны в {{ display_currency().code }} по последнему курсу{% endif %}</div>
+<h1>{{ 'Траты'|trans }} · {{ d.period|month_label }}</h1>
+<div class="muted">{{ 'Траты пересчитаны в AMD по курсу ЦБ Армении на дату каждой траты'|trans }}{% if display_currency().code != "AMD" %}, {{ 'итоги показаны в %currency% по последнему курсу'|trans({'%currency%': display_currency().code}) }}{% endif %}</div>
 
 <div class="total">{{ report.total|shown }}</div>
-{% if report.pendingCount > 0 %}<div class="muted">Без курса и не в итоге: {{ report.pendingCount }}</div>{% endif %}
+{% if report.pendingCount > 0 %}<div class="muted">{{ 'Без курса и не в итоге: %count%'|trans({'%count%': report.pendingCount}) }}</div>{% endif %}
 
 {% set line = d.debtLine %}
 {% if line %}
     <div class="debt">
         <strong>
-            {% if line.settled %}Никто никому не должен{% else %}{{ line.debtor.name }} должен(на) {{ line.creditor.name }} {{ line.amount|shown }}{% endif %}
+            {% if line.settled %}{{ 'Никто никому не должен'|trans }}{% else %}{{ line.debtor.name }} {{ 'должен(на)'|trans }} {{ line.creditor.name }} {{ line.amount|shown }}{% endif %}
         </strong>
         <table style="margin-top: 5pt">
             <tr>
@@ -64,16 +64,16 @@
                 <td style="width: 16%" class="r muted">{{ line.right.name }}</td>
             </tr>
         </table>
-        <div class="muted" style="margin-top: 3pt">Баланс за всё время на {{ generatedAt|date('d.m.Y') }}</div>
+        <div class="muted" style="margin-top: 3pt">{{ 'Баланс за всё время на %date%'|trans({'%date%': generatedAt|date('d.m.Y')}) }}</div>
     </div>
 {% endif %}
 
 {% if report.categories is not empty %}
-    <h2>По категориям</h2>
+    <h2>{{ 'По категориям'|trans }}</h2>
     <table class="bars">
         {% for c in report.categories %}
             <tr>
-                <td style="width: 28%">{{ c.title }} <span class="muted">({{ c.count }})</span></td>
+                <td style="width: 28%">{{ c.title|trans }} <span class="muted">({{ c.count }})</span></td>
                 <td style="width: 50%; vertical-align: middle">
                     <div class="bar" style="width: {{ max(d.categoryShare(c.amount.minor), 1) }}%"></div>
                 </td>
@@ -82,16 +82,16 @@
         {% endfor %}
     </table>
 
-    <h2>По участникам</h2>
+    <h2>{{ 'По участникам'|trans }}</h2>
     <table class="bars">
-        <tr><td class="muted"></td><td class="r muted">заплатил(а)</td><td class="r muted">доля в тратах</td></tr>
+        <tr><td class="muted"></td><td class="r muted">{{ 'заплатил(а)'|trans }}</td><td class="r muted">{{ 'доля в тратах'|trans }}</td></tr>
         {% for t in report.participants %}
             <tr><td>{{ t.participant.name }}</td><td class="r">{{ t.paid|shown }}</td><td class="r">{{ t.share|shown }}</td></tr>
         {% endfor %}
     </table>
 {% endif %}
 
-<h2>Последние 12 месяцев</h2>
+<h2>{{ 'Последние 12 месяцев'|trans }}</h2>
 <table class="trend">
     <tr style="height: 70pt">
         {% for p in d.trend %}
@@ -104,22 +104,22 @@
 </table>
 
 {% if d.expenses is not empty %}
-    <h2>Все траты месяца</h2>
+    <h2>{{ 'Все траты месяца'|trans }}</h2>
     <table class="ledger">
-        <tr><th>Дата</th><th>Категория</th><th>Заметка</th><th>Платил</th><th class="r">Сумма</th><th class="r">{{ display_currency().code }}</th></tr>
+        <tr><th>{{ 'Дата'|trans }}</th><th>{{ 'Категория'|trans }}</th><th>{{ 'Заметка'|trans }}</th><th>{{ 'Платил'|trans }}</th><th class="r">{{ 'Сумма'|trans }}</th><th class="r">{{ display_currency().code }}</th></tr>
         {% for e in d.expenses|reverse %}
             <tr>
                 <td>{{ e.spentAt|date('d.m') }}</td>
-                <td>{{ e.categoryTitle }}</td>
+                <td>{{ e.categoryTitle|trans }}</td>
                 <td class="muted">{{ e.note }}{% if e.split.value != 'equal' %} · {{ e.split|split_label }}{% endif %}</td>
                 <td>{{ e.payerName }}</td>
                 <td class="r">{{ e.amount|money }}</td>
-                <td class="r">{{ e.amountBase ? e.amountBase|shown_number : 'нет курса' }}</td>
+                <td class="r">{{ e.amountBase ? e.amountBase|shown_number : 'нет курса'|trans }}</td>
             </tr>
         {% endfor %}
     </table>
 {% endif %}
 
-<div class="footer">Сформировано {{ generatedAt|date('d.m.Y') }}</div>
+<div class="footer">{{ 'Сформировано %date%'|trans({'%date%': generatedAt|date('d.m.Y')}) }}</div>
 </body>
 </html>

@@ -1,0 +1,4 @@
+/* Localized Info.plist values; the bundle folder and executable names do not change. */
+"CFBundleName" = "Траты";
+"CFBundleDisplayName" = "Траты";
+"NSLocalNetworkUsageDescription" = "Чтобы вести общий учёт с другим Mac в домашней сети.";

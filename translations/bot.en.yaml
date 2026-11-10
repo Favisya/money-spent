@@ -1,0 +1,82 @@
+# English texts of the Telegram bot (domain "bot"); the keys are the Russian source strings.
+# A missing key falls back to Russian. %placeholders% are filled by the code.
+
+# Dates: ICU pattern of a day in bot messages.
+"dd.MM.y": "d MMM y"
+
+# Commands and the help text
+"Привет, %name%! Ты в списке участников.": "Hi, %name%! You are on the participant list."
+"Трата — одним сообщением: сумма, валюта, категория, дата, заметка.": "One message per expense: amount, currency, category, date, note."
+"17000 продукты": "17000 groceries"
+"18,5 eur чатгпт 10.11": "18.5 eur chatgpt 10.11"
+"9700 доставка кари вчера": "9700 delivery pizza yesterday"
+"9700 доставка вчера": "9700 delivery yesterday"
+"700 кофе лично": "700 coffee personal"
+"3000 цветы ей": "3000 flowers her"
+"-2500 руб возврат": "-2500 rub refund"
+"только моя трата": "only my expense"
+"целиком за другого": "entirely for the other person"
+"возврат денег": "money back"
+"Команды:": "Commands:"
+"регистрация и эта справка": "sign up and this help"
+"кто кому сколько должен": "who owes whom how much"
+"итоги месяца: /month, /month 10, /month 10.2025": "month summary: /month, /month 10, /month 10.2025"
+"CSV трат за месяц: /export, /export 10": "CSV of the month's expenses: /export, /export 10"
+"записать мой перевод второму участнику: /settle 2500 руб": "record my payment to the other participant: /settle 2500 rub"
+"удалить мою последнюю запись": "delete my last entry"
+"язык бота: /language en, /language ru": "bot language: /language en, /language ru"
+"Не знаю такую команду. Список команд — /start": "I don't know this command. All commands: /start"
+
+# /language
+"Язык бота: %language%. Сменить: %options%": "Bot language: %language%. To switch: %options%"
+"Такого языка нет. Можно так: %options%": "No such language. Try: %options%"
+
+# Expense card
+"платил(а) %name%": "paid by %name%"
+"пополам": "split in half"
+"личное": "personal"
+"за другого": "for the other"
+"Категория": "Category"
+"Удалить": "Delete"
+"Удалено": "Deleted"
+"Назад": "Back"
+"Категория: %category%": "Category: %category%"
+"Кнопка устарела.": "This button is out of date."
+"Курса %currency% на %date% пока нет — пересчитаю, когда он появится.": "No %currency% rate for %date% yet — I will convert it once it is published."
+
+# Default category titles (custom titles are shown as typed)
+"Продукты": "Groceries"
+"Доставка": "Delivery"
+"Коммуналка": "Utilities"
+"Бензин": "Fuel"
+"Подписки": "Subscriptions"
+"Переводы": "Transfers"
+"Прочее": "Other"
+
+# Balance and settling up
+"Пока зарегистрирован один участник — второй должен написать боту /start.": "Only one participant so far: the other one should send /start to the bot."
+"<b>%debtor%</b> должен(на) <b>%creditor%</b> %amount%": "<b>%debtor%</b> owes <b>%creditor%</b> %amount%"
+"Никто никому не должен.": "Nobody owes anybody."
+"Без курса и пока не учтено записей: %count%.": "Entries without a rate, not counted yet: %count%."
+"Баланс": "Balance"
+"Укажи сумму перевода: /settle 2500 руб": "Give the amount you sent: /settle 2500 rub"
+"Перевод записан: <b>%from% → %to%</b> %amount%": "Payment recorded: <b>%from% → %to%</b> %amount%"
+"курса пока нет, в баланс попадёт позже": "no rate yet, it will count in the balance later"
+
+# Month summary and export
+"<b>%month%</b>: трат нет.": "<b>%month%</b>: no expenses."
+"Всего: <b>%total%</b>": "Total: <b>%total%</b>"
+"По категориям": "By category"
+"По участникам": "By participant"
+"%name%: заплатил(а) %paid%, доля %share%": "%name%: paid %paid%, share %share%"
+"Трат без курса, не вошли в итог: %count%.": "Expenses without a rate, left out of the total: %count%."
+"За %month% трат нет.": "No expenses in %month%."
+"Траты: %month%": "Expenses: %month%"
+
+# Undo
+"Нечего удалять.": "Nothing to delete."
+"Удалил трату: %amount% от %date%": "Deleted the expense: %amount% on %date%"
+"Удалил перевод: %amount% от %date%": "Deleted the payment: %amount% on %date%"
+
+# Parse errors
+"Примеры:": "Examples:"

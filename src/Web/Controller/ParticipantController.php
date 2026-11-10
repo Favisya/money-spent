@@ -57,7 +57,7 @@ final class ParticipantController extends AbstractController
         } catch (UserError $exception) {
             return $this->render('web/participants.html.twig', [
                 ...$this->colorState(),
-                'error'    => $exception->getMessage(),
+                'error'    => $exception,
                 'errorFor' => $id ?? 'new',
             ], new Response(status: Response::HTTP_UNPROCESSABLE_ENTITY));
         }

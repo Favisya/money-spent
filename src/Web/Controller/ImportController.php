@@ -36,7 +36,7 @@ final class ImportController extends AbstractController
         return $this->render('web/import.html.twig', [
             'participants' => $this->participants->all(),
             ...$this->signState($request),
-            'payerId' => $request->cookies->getInt('payer'),
+            'payerId' => (int) filter_var($request->cookies->getString('payer'), FILTER_VALIDATE_INT),
             'date'    => $this->calendar->today()->format('Y-m-d'),
             'text'    => '',
         ]);
@@ -63,7 +63,7 @@ final class ImportController extends AbstractController
                 'payerId' => $request->request->getInt('payer'),
                 'date'    => $request->request->getString('date'),
                 'text'    => $request->request->getString('text'),
-                'error'   => $exception->getMessage(),
+                'error'   => $exception,
             ], new Response(status: Response::HTTP_UNPROCESSABLE_ENTITY));
         }
 
@@ -110,7 +110,7 @@ final class ImportController extends AbstractController
                 'payerId' => $request->request->getInt('payer'),
                 'date'    => $request->request->getString('date'),
                 'text'    => $request->request->getString('text'),
-                'error'   => $exception->getMessage(),
+                'error'   => $exception,
             ], new Response(status: Response::HTTP_UNPROCESSABLE_ENTITY));
         }
 

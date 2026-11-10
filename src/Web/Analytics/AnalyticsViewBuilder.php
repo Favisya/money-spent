@@ -16,6 +16,7 @@ use App\Web\Chart\SankeyChart;
 use App\Web\Chart\SankeyLayout;
 use App\Web\People\PeoplePalette;
 use DateTimeImmutable;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 final readonly class AnalyticsViewBuilder
 {
@@ -36,6 +37,7 @@ final readonly class AnalyticsViewBuilder
         private ChordLayout $chord,
         private DonutLayout $donut,
         private PeoplePalette $people,
+        private TranslatorInterface $translator,
     ) {
     }
 
@@ -84,7 +86,7 @@ final readonly class AnalyticsViewBuilder
         $links      = [];
 
         foreach ($analysis->owners as $owner) {
-            $owners[] = new ChartNode('o:' . $owner->key, $owner->label, $ownerColors[$owner->key]);
+            $owners[] = new ChartNode('o:' . $owner->key, $this->ownerLabel($owner), $ownerColors[$owner->key]);
 
             if ($owner->participantId !== null) {
                 $payers[] = new ChartNode('p:' . $owner->participantId, $owner->label, $ownerColors[$owner->key]);
@@ -101,7 +103,11 @@ final readonly class AnalyticsViewBuilder
             $category = $analysis->categories[$categoryId] ?? null;
 
             if ($category !== null && $total > 0) {
-                $categories[] = new ChartNode('c:' . $categoryId, $category->title, $categoryColors[$categoryId]);
+                $categories[] = new ChartNode(
+                    'c:' . $categoryId,
+                    $this->translator->trans($category->title),
+                    $categoryColors[$categoryId],
+                );
             }
         }
 
@@ -126,9 +132,9 @@ final readonly class AnalyticsViewBuilder
         array $categoryColors,
     ): ChordChart {
         $nodes = array_map(
-            static fn (Owner $owner): ChartNode => new ChartNode(
+            fn (Owner $owner): ChartNode => new ChartNode(
                 'o:' . $owner->key,
-                $owner->label,
+                $this->ownerLabel($owner),
                 $ownerColors[$owner->key],
             ),
             $analysis->owners,
@@ -139,7 +145,11 @@ final readonly class AnalyticsViewBuilder
             $category = $analysis->categories[$categoryId] ?? null;
 
             if ($category !== null) {
-                $nodes[] = new ChartNode('c:' . $categoryId, $category->title, $categoryColors[$categoryId]);
+                $nodes[] = new ChartNode(
+                    'c:' . $categoryId,
+                    $this->translator->trans($category->title),
+                    $categoryColors[$categoryId],
+                );
             }
         }
 
@@ -165,12 +175,21 @@ final readonly class AnalyticsViewBuilder
             $category = $analysis->categories[$categoryId] ?? null;
 
             if ($category !== null) {
-                $node    = new ChartNode((string) $categoryId, $category->title, $categoryColors[$categoryId]);
+                $title   = $this->translator->trans($category->title);
+                $node    = new ChartNode((string) $categoryId, $title, $categoryColors[$categoryId]);
                 $parts[] = [$node, $total];
             }
         }
 
         return $this->donut->layout($parts);
+    }
+
+    /**
+     * Shared money is labelled in the page language; a person is labelled by their name.
+     */
+    private function ownerLabel(Owner $owner): string
+    {
+        return $owner->isShared() ? $this->translator->trans($owner->label) : $owner->label;
     }
 
     /**

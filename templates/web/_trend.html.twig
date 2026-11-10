@@ -1,4 +1,4 @@
-<table class="trend" aria-label="Траты по месяцам, {{ display_currency().code }}">
+<table class="trend" aria-label="{{ 'Траты по месяцам, %currency%'|trans({'%currency%': display_currency().code}) }}">
     <tr class="trend__bars">
         {% for p in trend %}
             <td title="{{ p.period|month_label }}: {{ p.total|shown }}">

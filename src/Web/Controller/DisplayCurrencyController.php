@@ -6,6 +6,7 @@ namespace App\Web\Controller;
 
 use App\Application\Rates\RateSourceChoice;
 use App\Web\Currency\DisplayCurrency;
+use App\Web\Http\BackPath;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -15,8 +16,7 @@ use Symfony\Component\Routing\Attribute\Route;
 
 final class DisplayCurrencyController extends AbstractController
 {
-    private const int COOKIE_TTL    = 31_536_000;
-    private const string LOCAL_PATH = '#^/(?![/\\\\])[^\s]*$#';
+    private const int COOKIE_TTL = 31_536_000;
 
     public function __construct(
         private readonly DisplayCurrency $display,
@@ -29,7 +29,7 @@ final class DisplayCurrencyController extends AbstractController
         $code = $request->request->getString('code');
         $back = $request->request->getString('back');
 
-        $response = new RedirectResponse(preg_match(self::LOCAL_PATH, $back) === 1 ? $back : '/');
+        $response = new RedirectResponse(BackPath::orRoot($back));
 
         $source = RateSourceChoice::tryFrom($request->request->getString('source'));
 

@@ -7,11 +7,11 @@ namespace App\Bot\Command;
 use App\Application\Balance\BalanceService;
 use App\Application\Parsing\ParserFactory;
 use App\Application\Settlement\SettlementRecorder;
-use App\Application\UserError;
 use App\Bot\BotContext;
 use App\Bot\Message\MessageUuid;
 use App\Bot\Reply\TextReply;
 use App\Bot\View\BalanceText;
+use App\Bot\View\BotTranslator;
 use App\Bot\View\Html;
 use App\Bot\View\MoneyFormatter;
 use App\Bot\View\ParseErrorReply;
@@ -19,6 +19,8 @@ use App\Domain\Parsing\ExpenseParseException;
 
 final readonly class SettleCommand implements BotCommand
 {
+    private const string NO_RATE = 'курса пока нет, в баланс попадёт позже';
+
     public function __construct(
         private ParserFactory $parsers,
         private SettlementRecorder $recorder,
@@ -26,6 +28,7 @@ final readonly class SettleCommand implements BotCommand
         private BalanceText $balanceView,
         private MoneyFormatter $money,
         private ParseErrorReply $errors,
+        private BotTranslator $translator,
     ) {
     }
 
@@ -42,7 +45,10 @@ final readonly class SettleCommand implements BotCommand
     public function handle(BotContext $context, string $arguments): array
     {
         if ($arguments === '') {
-            throw new UserError('Укажи сумму перевода: /settle 2500 руб');
+            return [new TextReply(
+                $context->chatId,
+                '⚠️ ' . $this->translator->text('Укажи сумму перевода: /settle 2500 руб'),
+            )];
         }
 
         try {
@@ -62,16 +68,20 @@ final readonly class SettleCommand implements BotCommand
         $draft = $recorded->draft;
         $base  = $draft->amountBase();
 
+        $rate = match (true) {
+            $base === null                                    => ' (' . $this->translator->text(self::NO_RATE) . ')',
+            $base->currency->equals($draft->amount->currency) => '',
+            default                                           => ' ≈ ' . $this->money->format($base),
+        };
+
         $text = sprintf(
-            "🤝 Перевод записан: <b>%s → %s</b> %s%s\n\n%s",
-            Html::escape($context->participant->name),
-            Html::escape($recorded->to->name),
-            $this->money->format($draft->amount),
-            match (true) {
-                $base === null                                    => ' (курса пока нет, в баланс попадёт позже)',
-                $base->currency->equals($draft->amount->currency) => '',
-                default                                           => ' ≈ ' . $this->money->format($base),
-            },
+            "🤝 %s%s\n\n%s",
+            $this->translator->text('Перевод записан: <b>%from% → %to%</b> %amount%', [
+                '%from%'   => Html::escape($context->participant->name),
+                '%to%'     => Html::escape($recorded->to->name),
+                '%amount%' => $this->money->format($draft->amount),
+            ]),
+            $rate,
             $this->balanceView->render($this->balances->current()),
         );
 

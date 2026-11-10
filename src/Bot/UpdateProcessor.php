@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Bot;
 
 use App\Application\Clock\LocalCalendar;
+use App\Bot\Locale\BotLanguage;
 use App\Bot\Reply\Reply;
 use App\Bot\Telegram\TelegramApiException;
 use App\Bot\Telegram\TelegramClient;
@@ -13,9 +14,11 @@ use App\Infrastructure\Persistence\ParticipantRepository;
 use App\Infrastructure\Persistence\TelegramUpdateRepository;
 use Doctrine\DBAL\Connection;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Translation\LocaleSwitcher;
 
 /**
  * Handles one update exactly once: the update id and all writes commit together, replies go out afterwards.
+ * Replies are written in the participant's language (see BotLanguage).
  */
 final readonly class UpdateProcessor
 {
@@ -28,6 +31,8 @@ final readonly class UpdateProcessor
         private LocalCalendar $calendar,
         private TelegramClient $telegram,
         private LoggerInterface $logger,
+        private BotLanguage $languages,
+        private LocaleSwitcher $locales,
     ) {
     }
 
@@ -47,7 +52,10 @@ final readonly class UpdateProcessor
 
             $participant = $this->participants->register($actor->id, $actor->firstName);
 
-            return $this->router->route($update, $participant, $this->calendar->today());
+            return $this->locales->runWithLocale(
+                $this->languages->forParticipant($participant, $actor->languageCode),
+                fn (): array => $this->router->route($update, $participant, $this->calendar->today()),
+            );
         });
 
         foreach ($replies as $reply) {

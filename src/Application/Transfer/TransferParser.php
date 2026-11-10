@@ -13,19 +13,28 @@ use App\Domain\Parsing\ExpenseParseException;
 use DateTimeImmutable;
 
 /**
- * Reads lines like "алиса скинула 5000", "скинул алисе 3000 руб", "перевёл маме 10000 05.11".
- * A participant named before the verb (or after "от") is the sender, one named after it is the recipient; any other
- * first word after the verb is someone outside the ledger. "Я", "мне" and the like mean the defaults.
+ * Reads lines like "алиса скинула 5000", "скинул алисе 3000 руб", "перевёл маме 10000 05.11", and the same in English:
+ * "alice sent 5000", "sent to alice 3000 rub", "transferred mom 10000 05.11". Both languages work in any interface.
+ * A participant named before the verb (or after "от" / "from") is the sender, one named after it (or after "для" /
+ * "to") is the recipient; any other first word after the verb is someone outside the ledger. "Я", "мне", "I", "me"
+ * and the like mean the defaults.
  */
 final readonly class TransferParser
 {
     private const int NAME_LENGTH = 64;
 
-    private const array SPEAKER = ['я', 'мы', 'мне', 'нам', 'меня', 'нас'];
+    private const array SPEAKER = ['я', 'мы', 'мне', 'нам', 'меня', 'нас', 'i', 'we', 'me', 'us'];
+
+    /** "от алисы", "from alice": the sender. */
+    private const array FROM = ['от', 'from'];
+
+    /** "для мамы", "to mom": the recipient. */
+    private const array TO = ['для', 'to'];
 
     private const array NOT_A_RECIPIENT = [
         'за', 'на', 'в', 'во', 'по', 'под', 'с', 'со', 'из', 'от', 'обратно', 'назад', 'долг', 'долга', 'деньги',
         'денег', 'сумму',
+        'for', 'on', 'in', 'at', 'by', 'with', 'from', 'back', 'debt', 'money', 'the', 'a', 'an',
     ];
 
     /**
@@ -81,8 +90,18 @@ final readonly class TransferParser
                 continue;
             }
 
-            if ($word === 'от' && $this->guesser->participantIn($words[$i + 1] ?? '', $participants) !== null) {
-                $sender ??= $this->guesser->participantIn($words[++$i], $participants);
+            $next = $this->guesser->participantIn(self::normalize($words[$i + 1] ?? ''), $participants);
+
+            if ($next !== null && in_array($word, self::FROM, true)) {
+                $sender ??= $next;
+                ++$i;
+
+                continue;
+            }
+
+            if ($next !== null && in_array($word, self::TO, true)) {
+                $recipient ??= $next;
+                ++$i;
 
                 continue;
             }
@@ -100,7 +119,7 @@ final readonly class TransferParser
             $firstAfterVerb = $verb !== null && $i === $verb + 1;
 
             if ($outsider === null && $firstAfterVerb && !in_array($word, self::NOT_A_RECIPIENT, true)) {
-                $outsider = $word === 'для' && isset($words[$i + 1]) ? $words[++$i] : $words[$i];
+                $outsider = in_array($word, self::TO, true) && isset($words[$i + 1]) ? $words[++$i] : $words[$i];
 
                 continue;
             }
@@ -124,7 +143,7 @@ final readonly class TransferParser
         }
 
         if ($outsider !== null && (trim($outsider) === '' || mb_strlen($outsider) > self::NAME_LENGTH)) {
-            throw new UserError(sprintf('Кому перевод — имя от 1 до %d символов.', self::NAME_LENGTH));
+            throw new UserError('Кому перевод — имя от 1 до %max% символов.', ['%max%' => self::NAME_LENGTH]);
         }
 
         return new TransferIntent(

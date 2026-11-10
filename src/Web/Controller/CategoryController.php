@@ -11,6 +11,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class CategoryController extends AbstractController
 {
@@ -25,6 +26,7 @@ final class CategoryController extends AbstractController
     public function __construct(
         private readonly CategoryAdmin $admin,
         private readonly CategoryRepository $categories,
+        private readonly TranslatorInterface $translator,
     ) {
     }
 
@@ -46,7 +48,7 @@ final class CategoryController extends AbstractController
             $category = $this->admin->create($title, $keywords);
         } catch (UserError $exception) {
             return $this->page([
-                'addError'    => $exception->getMessage(),
+                'addError'    => $exception,
                 'addTitle'    => $title,
                 'addKeywords' => $keywords,
             ], Response::HTTP_UNPROCESSABLE_ENTITY);
@@ -61,10 +63,10 @@ final class CategoryController extends AbstractController
         [$title, $keywords] = $this->input($request);
 
         try {
-            $this->admin->update($id, $title, $keywords);
+            $this->admin->update($id, $this->storedTitle($id, $title), $keywords);
         } catch (UserError $exception) {
             return $this->page([
-                'editError' => [$id => $exception->getMessage()],
+                'editError' => [$id => $exception],
                 'editTitle' => [$id => $title],
                 'editWords' => [$id => $keywords],
             ], Response::HTTP_UNPROCESSABLE_ENTITY);
@@ -86,10 +88,20 @@ final class CategoryController extends AbstractController
         try {
             $this->admin->setActive($id, $active);
         } catch (UserError $exception) {
-            return $this->page(['editError' => [$id => $exception->getMessage()]], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->page(['editError' => [$id => $exception]], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         return $this->redirectToRoute('web_categories', ['ok' => $active ? 'shown' : 'hidden', 'id' => $id]);
+    }
+
+    /**
+     * The form shows a seeded title in the page language ("Groceries"); sending it back unchanged keeps "Продукты".
+     */
+    private function storedTitle(int $id, string $title): string
+    {
+        $stored = $this->categories->find($id)?->title;
+
+        return $stored !== null && trim($title) === $this->translator->trans($stored) ? $stored : $title;
     }
 
     /**

@@ -12,6 +12,7 @@ use App\Bot\Reply\EditReply;
 use App\Bot\Telegram\CallbackQuery;
 use App\Bot\Telegram\InlineButton;
 use App\Bot\Telegram\InlineKeyboard;
+use App\Bot\View\BotTranslator;
 use App\Bot\View\ExpenseCard;
 use App\Infrastructure\Persistence\CategoryRepository;
 
@@ -24,6 +25,7 @@ final readonly class ChangeCategoryCallback implements BotCallback
         private ExpenseEditor $editor,
         private CategoryRepository $categories,
         private ExpenseCard $card,
+        private BotTranslator $translator,
     ) {
     }
 
@@ -42,15 +44,15 @@ final readonly class ChangeCategoryCallback implements BotCallback
         [$expenseId] = CallbackPayload::ids($payload, 1);
         $expense     = $this->editor->ownedActive($context->participant, $expenseId);
         $buttons     = array_map(
-            static fn (Category $category): InlineButton => new InlineButton(
-                $category->title,
+            fn (Category $category): InlineButton => new InlineButton(
+                $this->translator->text($category->title),
                 SetCategoryCallback::data($expenseId, $category->id),
             ),
             $this->categories->findActive(),
         );
 
-        $keyboard = InlineKeyboard::grid($buttons, self::PER_ROW)
-            ->withRow(new InlineButton('« Назад', ShowCardCallback::data($expenseId)));
+        $back     = new InlineButton('« ' . $this->translator->text('Назад'), ShowCardCallback::data($expenseId));
+        $keyboard = InlineKeyboard::grid($buttons, self::PER_ROW)->withRow($back);
 
         return [
             new EditReply($context->chatId, $context->messageId, $this->card->text($expense), $keyboard),

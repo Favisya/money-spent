@@ -13,6 +13,7 @@ use App\Bot\Reply\CallbackAnswer;
 use App\Bot\Reply\Reply;
 use App\Bot\Reply\TextReply;
 use App\Bot\Telegram\Update;
+use App\Bot\View\BotTranslator;
 use App\Bot\View\Html;
 use DateTimeImmutable;
 
@@ -22,6 +23,7 @@ final readonly class BotRouter
         private CommandRouter $commands,
         private CallbackRouter $callbacks,
         private ExpenseMessageHandler $expenses,
+        private BotTranslator $translator,
     ) {
     }
 
@@ -39,7 +41,7 @@ final readonly class BotRouter
                     ? $this->commands->handle($context, $message->text)
                     : $this->expenses->handle($context, $message->text);
             } catch (UserError $error) {
-                return [new TextReply($context->chatId, '⚠️ ' . Html::escape($error->getMessage()))];
+                return [new TextReply($context->chatId, '⚠️ ' . Html::escape($this->translator->error($error)))];
             }
         }
 
@@ -50,7 +52,7 @@ final readonly class BotRouter
             try {
                 return $this->callbacks->handle($context, $callback);
             } catch (UserError $error) {
-                return [new CallbackAnswer($callback->id, $error->getMessage())];
+                return [new CallbackAnswer($callback->id, $this->translator->error($error))];
             }
         }
 

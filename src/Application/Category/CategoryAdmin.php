@@ -46,7 +46,10 @@ final readonly class CategoryAdmin
         $category = $this->existing($id);
 
         if (!$active && $category->code === $this->defaultCategoryCode) {
-            throw new UserError(sprintf('«%s» нельзя скрыть: туда попадают траты без категории.', $category->title));
+            throw new UserError(
+                '«%title%» нельзя скрыть: туда попадают траты без категории.',
+                ['%title%' => $category->title],
+            );
         }
 
         if ($active) {
@@ -73,12 +76,12 @@ final readonly class CategoryAdmin
         $title = trim(preg_replace('/\s+/u', ' ', $title) ?? '');
 
         if ($title === '' || mb_strlen($title) > self::TITLE_LENGTH) {
-            throw new UserError(sprintf('Название нужно от 1 до %d символов.', self::TITLE_LENGTH));
+            throw new UserError('Название нужно от 1 до %max% символов.', ['%max%' => self::TITLE_LENGTH]);
         }
 
         foreach ($this->categories->findActive() as $category) {
             if ($category->id !== $exceptId && mb_strtolower($category->title) === mb_strtolower($title)) {
-                throw new UserError(sprintf('Категория «%s» уже есть.', $category->title));
+                throw new UserError('Категория «%title%» уже есть.', ['%title%' => $category->title]);
             }
         }
 
@@ -97,12 +100,15 @@ final readonly class CategoryAdmin
         $words = array_values(array_unique($words));
 
         if (count($words) > self::MAX_KEYWORDS) {
-            throw new UserError(sprintf('Ключевых слов не больше %d.', self::MAX_KEYWORDS));
+            throw new UserError('Ключевых слов не больше %max%.', ['%max%' => self::MAX_KEYWORDS]);
         }
 
         foreach ($words as $word) {
             if (mb_strlen($word) > self::KEYWORD_LENGTH || preg_match('/^[\p{L}\p{N}.\-]+$/u', $word) !== 1) {
-                throw new UserError(sprintf('Ключевое слово «%s»: только буквы, цифры, точка и дефис.', $word));
+                throw new UserError(
+                    'Ключевое слово «%word%»: только буквы, цифры, точка и дефис.',
+                    ['%word%' => $word],
+                );
             }
         }
 

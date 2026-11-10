@@ -51,7 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             backing: .buffered,
             defer: false
         )
-        window.title = "Траты"
+        window.title = L10n.text("app.name")
         window.minSize = NSSize(width: 420, height: 500)
         window.contentView = web.view
         window.setFrameAutosaveName("MainWindow")
@@ -98,7 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         mode = .local
         bonjour.stopBrowsing()
         defaults.set(Mode.local.rawValue, forKey: Key.mode)
-        web.showStatus("Запускаю…")
+        web.showStatus(L10n.text("status.starting"))
         busy = true
         let sharing = defaults.bool(forKey: Key.sharing)
 
@@ -138,7 +138,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             startLocal()
         case "connect":
             guard let url = Self.remoteURL(from: action["url"] ?? "") else {
-                showChooser(note: "Не понял адрес. Пример: http://dima-mac.local:8765")
+                showChooser(note: L10n.text("chooser.badAddress"))
                 return
             }
             startRemote(url)
@@ -196,7 +196,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             } catch {
                 DispatchQueue.main.async {
                     self.busy = false
-                    self.alert("Не удалось переключить доступ", error.localizedDescription)
+                    self.alert(L10n.text("alert.sharingFailed"), error.localizedDescription)
                 }
             }
         }
@@ -204,17 +204,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     @objc private func connectElsewhere() {
         let question = NSAlert()
-        question.messageText = mode == .remote ? "Отключиться от этого Mac?" : "Подключиться к другому Mac?"
-        question.informativeText = mode == .remote
-            ? "Можно будет выбрать другой Mac или вести учёт здесь."
-            : "Учёт на этом Mac остановится, но данные останутся. Вернуться можно в том же меню."
-        question.addButton(withTitle: "Да")
-        question.addButton(withTitle: "Отмена")
+        let remote = mode == .remote
+        question.messageText = L10n.text(remote ? "disconnect.title" : "connect.title")
+        question.informativeText = L10n.text(remote ? "disconnect.detail" : "connect.detail")
+        question.addButton(withTitle: L10n.text("button.yes"))
+        question.addButton(withTitle: L10n.text("button.cancel"))
         guard question.runModal() == .alertFirstButtonReturn else { return }
 
         defaults.removeObject(forKey: Key.mode)
         bonjour.unpublish()
-        web.showStatus("Останавливаю…")
+        web.showStatus(L10n.text("status.stopping"))
         DispatchQueue.global(qos: .userInitiated).async { [runtime] in
             runtime.stop()
             DispatchQueue.main.async { self.showChooser() }
@@ -229,7 +228,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         case #selector(goSharing), #selector(openDataFolder):
             return mode == .local
         case #selector(connectElsewhere):
-            item.title = mode == .remote ? "Отключиться от другого Mac…" : "Подключиться к другому Mac…"
+            item.title = L10n.text(mode == .remote ? "menu.disconnect" : "menu.connect")
             return mode != nil && !busy
         case #selector(goHome), #selector(goAnalytics), #selector(goImport), #selector(reload):
             return home != nil
@@ -244,46 +243,66 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let main = NSMenu()
 
         let app = NSMenu()
-        app.addItem(withTitle: "О программе «Траты»", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        app.addItem(
+            withTitle: L10n.text("menu.about"),
+            action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
+            keyEquivalent: ""
+        )
         app.addItem(.separator())
-        app.addItem(withTitle: "Разрешить подключение", action: #selector(toggleSharing), keyEquivalent: "")
-        app.addItem(withTitle: "Общий доступ…", action: #selector(goSharing), keyEquivalent: "")
-        app.addItem(withTitle: "Подключиться к другому Mac…", action: #selector(connectElsewhere), keyEquivalent: "")
+        app.addItem(withTitle: L10n.text("menu.allowConnections"), action: #selector(toggleSharing), keyEquivalent: "")
+        app.addItem(withTitle: L10n.text("menu.sharing"), action: #selector(goSharing), keyEquivalent: "")
+        app.addItem(withTitle: L10n.text("menu.connect"), action: #selector(connectElsewhere), keyEquivalent: "")
         app.addItem(.separator())
-        app.addItem(withTitle: "Открыть папку с данными", action: #selector(openDataFolder), keyEquivalent: "")
+        app.addItem(withTitle: L10n.text("menu.openDataFolder"), action: #selector(openDataFolder), keyEquivalent: "")
         app.addItem(.separator())
-        app.addItem(withTitle: "Скрыть «Траты»", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
-        app.addItem(withTitle: "Завершить «Траты»", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        main.addItem(submenu: app, title: "Траты")
+        app.addItem(withTitle: L10n.text("menu.hide"), action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        app.addItem(
+            withTitle: L10n.text("menu.quit"),
+            action: #selector(NSApplication.terminate(_:)),
+            keyEquivalent: "q"
+        )
+        main.addItem(submenu: app, title: L10n.text("app.name"))
 
-        let edit = NSMenu(title: "Правка")
-        edit.addItem(withTitle: "Отменить", action: Selector(("undo:")), keyEquivalent: "z")
-        edit.addItem(withTitle: "Повторить", action: Selector(("redo:")), keyEquivalent: "Z")
+        let edit = NSMenu(title: L10n.text("menu.edit"))
+        edit.addItem(withTitle: L10n.text("menu.undo"), action: Selector(("undo:")), keyEquivalent: "z")
+        edit.addItem(withTitle: L10n.text("menu.redo"), action: Selector(("redo:")), keyEquivalent: "Z")
         edit.addItem(.separator())
-        edit.addItem(withTitle: "Вырезать", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-        edit.addItem(withTitle: "Скопировать", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        edit.addItem(withTitle: "Вставить", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        edit.addItem(withTitle: "Выбрать все", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
-        main.addItem(submenu: edit, title: "Правка")
+        edit.addItem(withTitle: L10n.text("menu.cut"), action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: L10n.text("menu.copy"), action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: L10n.text("menu.paste"), action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(
+            withTitle: L10n.text("menu.selectAll"),
+            action: #selector(NSText.selectAll(_:)),
+            keyEquivalent: "a"
+        )
+        main.addItem(submenu: edit, title: edit.title)
 
-        let view = NSMenu(title: "Вид")
-        view.addItem(withTitle: "Обзор", action: #selector(goHome), keyEquivalent: "1")
-        view.addItem(withTitle: "Аналитика", action: #selector(goAnalytics), keyEquivalent: "2")
-        view.addItem(withTitle: "Импорт", action: #selector(goImport), keyEquivalent: "3")
+        let view = NSMenu(title: L10n.text("menu.view"))
+        view.addItem(withTitle: L10n.text("menu.overview"), action: #selector(goHome), keyEquivalent: "1")
+        view.addItem(withTitle: L10n.text("menu.analytics"), action: #selector(goAnalytics), keyEquivalent: "2")
+        view.addItem(withTitle: L10n.text("menu.import"), action: #selector(goImport), keyEquivalent: "3")
         view.addItem(.separator())
-        view.addItem(withTitle: "Назад", action: #selector(goBack), keyEquivalent: "[")
-        view.addItem(withTitle: "Вперёд", action: #selector(goForward), keyEquivalent: "]")
-        view.addItem(withTitle: "Обновить", action: #selector(reload), keyEquivalent: "r")
+        view.addItem(withTitle: L10n.text("menu.back"), action: #selector(goBack), keyEquivalent: "[")
+        view.addItem(withTitle: L10n.text("menu.forward"), action: #selector(goForward), keyEquivalent: "]")
+        view.addItem(withTitle: L10n.text("menu.reload"), action: #selector(reload), keyEquivalent: "r")
         view.addItem(.separator())
-        view.addItem(withTitle: "Крупнее", action: #selector(zoomIn), keyEquivalent: "+")
-        view.addItem(withTitle: "Мельче", action: #selector(zoomOut), keyEquivalent: "-")
-        view.addItem(withTitle: "Обычный размер", action: #selector(zoomReset), keyEquivalent: "0")
-        main.addItem(submenu: view, title: "Вид")
+        view.addItem(withTitle: L10n.text("menu.zoomIn"), action: #selector(zoomIn), keyEquivalent: "+")
+        view.addItem(withTitle: L10n.text("menu.zoomOut"), action: #selector(zoomOut), keyEquivalent: "-")
+        view.addItem(withTitle: L10n.text("menu.actualSize"), action: #selector(zoomReset), keyEquivalent: "0")
+        main.addItem(submenu: view, title: view.title)
 
-        let windowMenu = NSMenu(title: "Окно")
-        windowMenu.addItem(withTitle: "Свернуть", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
-        windowMenu.addItem(withTitle: "Закрыть", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
-        main.addItem(submenu: windowMenu, title: "Окно")
+        let windowMenu = NSMenu(title: L10n.text("menu.window"))
+        windowMenu.addItem(
+            withTitle: L10n.text("menu.minimize"),
+            action: #selector(NSWindow.performMiniaturize(_:)),
+            keyEquivalent: "m"
+        )
+        windowMenu.addItem(
+            withTitle: L10n.text("menu.close"),
+            action: #selector(NSWindow.performClose(_:)),
+            keyEquivalent: "w"
+        )
+        main.addItem(submenu: windowMenu, title: windowMenu.title)
         NSApp.windowsMenu = windowMenu
 
         NSApp.mainMenu = main

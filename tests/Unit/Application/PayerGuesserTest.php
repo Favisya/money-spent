@@ -45,6 +45,7 @@ final class PayerGuesserTest extends TestCase
         yield 'preposition and name' => ['такси от бориса', 'такси'];
         yield 'name alone' => ['ужин борис кафе', 'ужин кафе'];
         yield 'only the mention' => ['от Бориса', null];
+        yield 'english preposition and name' => ['taxi from бориса', 'taxi'];
         yield 'other words untouched' => ['борщ', 'борщ'];
         yield 'no note' => [null, null];
     }

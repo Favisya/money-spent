@@ -19,7 +19,14 @@
     <key>CFBundleVersion</key>
     <string>__BUILD__</string>
     <key>CFBundleDevelopmentRegion</key>
-    <string>ru</string>
+    <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>ru</string>
+        <string>en</string>
+    </array>
+    <key>LSHasLocalizedDisplayName</key>
+    <true/>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>LSApplicationCategoryType</key>
@@ -29,7 +36,7 @@
     <key>NSSupportsAutomaticTermination</key>
     <false/>
     <key>NSLocalNetworkUsageDescription</key>
-    <string>Чтобы вести общий учёт с другим Mac в домашней сети.</string>
+    <string>To keep shared books with another Mac on your home network.</string>
     <key>NSBonjourServices</key>
     <array>
         <string>_moneyspent._tcp</string>

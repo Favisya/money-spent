@@ -61,7 +61,7 @@ final class PayerGuesser
     }
 
     /**
-     * Drops the payer mention ("от алисы", "алиса") from a note so it does not pollute note statistics.
+     * Drops the payer mention ("от алисы", "from alice", "алиса") from a note so it does not pollute note statistics.
      */
     public function stripMention(?string $note, Participant $payer): ?string
     {
@@ -71,7 +71,7 @@ final class PayerGuesser
             return $note;
         }
 
-        $pattern  = sprintf('/(?:^|\s)(?:от\s+)?%s\p{L}*(?=\s|$)/iu', preg_quote($stem, '/'));
+        $pattern  = sprintf('/(?:^|\s)(?:(?:от|from)\s+)?%s\p{L}*(?=\s|$)/iu', preg_quote($stem, '/'));
         $original = str_replace('ё', 'е', $note);
         $stripped = preg_replace($pattern, ' ', $original) ?? $original;
         $cleaned  = trim(preg_replace('/\s+/u', ' ', $stripped) ?? $stripped);

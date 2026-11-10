@@ -14,6 +14,7 @@ final readonly class CurrencyDefinition
     public function __construct(
         public Currency $currency,
         public array $aliases,
+        public bool $active = true,
     ) {
     }
 }

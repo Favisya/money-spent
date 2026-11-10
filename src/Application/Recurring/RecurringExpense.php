@@ -13,8 +13,8 @@ final readonly class RecurringExpense
 {
     public function __construct(
         public int $id,
-        public int $payerId,
-        public string $payerName,
+        public ?int $payerId,
+        public ?string $payerName,
         public Money $amount,
         public int $categoryId,
         public string $categoryCode,
@@ -25,6 +25,14 @@ final readonly class RecurringExpense
         public DateTimeImmutable $nextMonth,
         public bool $active,
     ) {
+    }
+
+    /**
+     * Both participants pay, half each.
+     */
+    public function isJoint(): bool
+    {
+        return $this->payerId === null;
     }
 
     public function nextDate(): DateTimeImmutable

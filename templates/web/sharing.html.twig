@@ -1,69 +1,65 @@
 {% extends 'web/base.html.twig' %}
 
-{% block title %}Доступ — Траты{% endblock %}
+{% block title %}{{ 'Доступ'|trans }} — {{ 'Траты'|trans }}{% endblock %}
 
 {% block body %}
     <div class="pagehead">
-        <h1>Общий доступ</h1>
-        <p class="hint measure">Второй человек ставит «Траты» на свой Mac, выбирает «Подключиться к другому Mac» и вводит
-            код отсюда. Работает в одной сети, пока это приложение открыто. Новые траты друг друга приходят уведомлениями.</p>
+        <h1>{{ 'Общий доступ'|trans }}</h1>
+        <p class="hint measure">{{ 'Второй человек ставит «Траты» на свой Mac, выбирает «Подключиться к другому Mac» и вводит код отсюда. Работает в одной сети, пока это приложение открыто. Новые траты друг друга приходят уведомлениями.'|trans }}</p>
     </div>
 
     <div class="grid2">
         <section class="block">
-            <h2>Адрес</h2>
+            <h2>{{ 'Адрес'|trans }}</h2>
             {% if urls is empty %}
-                <p>Сейчас доступ закрыт: приложение открыто только на этом Mac.</p>
-                <p class="hint">Включи в меню <strong>Траты → Разрешить подключение</strong>. macOS может спросить, разрешить ли
-                    входящие подключения, — разреши.</p>
+                <p>{{ 'Сейчас доступ закрыт: приложение открыто только на этом Mac.'|trans }}</p>
+                <p class="hint">{{ 'Включи в меню <strong>Траты → Разрешить подключение</strong>.'|trans|raw }}
+                    {{ 'macOS может спросить, разрешить ли входящие подключения, — разреши.'|trans }}</p>
             {% else %}
-                <p>Открыто для домашней сети:</p>
+                <p>{{ 'Открыто для домашней сети:'|trans }}</p>
                 <ul class="plain">{% for url in urls %}<li><code>{{ url }}</code></li>{% endfor %}</ul>
-                <p class="hint">Подключение не шифруется — включай в домашней сети, а не в кафе.</p>
+                <p class="hint">{{ 'Подключение не шифруется — включай в домашней сети, а не в кафе.'|trans }}</p>
                 <details class="firewall">
-                    <summary>У второго Mac не открывается?</summary>
-                    <p class="hint">Скорее всего, входящие подключения закрыл брандмауэр macOS. Проверь, что оба Mac в одной
-                        сети, затем разреши подключения для сервера «Трат»: в <strong>Системных настройках → Сеть →
-                        Брандмауэр → Параметры</strong> поставь «Разрешать входящие подключения» у <code>php</code>, или
-                        выполни в Терминале (спросит пароль):</p>
+                    <summary>{{ 'У второго Mac не открывается?'|trans }}</summary>
+                    <p class="hint">{{ 'Скорее всего, входящие подключения закрыл брандмауэр macOS. Проверь, что оба Mac в одной сети, затем разреши подключения для сервера «Трат»: в <strong>Системных настройках → Сеть → Брандмауэр → Параметры</strong> поставь «Разрешать входящие подключения» у <code>php</code>, или выполни в Терминале (спросит пароль):'|trans|raw }}</p>
                     <pre class="firewall__cmd"><code>sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add '{{ server }}'
 sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp '{{ server }}'</code></pre>
-                    <p class="hint">После обновления приложения это нужно сделать заново.</p>
+                    <p class="hint">{{ 'После обновления приложения это нужно сделать заново.'|trans }}</p>
                 </details>
             {% endif %}
         </section>
 
         <form class="block" method="post" action="{{ path('web_sharing_me') }}">
-            <h2>Это я на этом Mac</h2>
-            <p class="hint">Уведомления приходят о тратах и переводах остальных.</p>
-            <select class="input" name="participant" aria-label="Кто ты на этом Mac">
+            <h2>{{ 'Это я на этом Mac'|trans }}</h2>
+            <p class="hint">{{ 'Уведомления приходят о тратах и переводах остальных.'|trans }}</p>
+            <select class="input" name="participant" aria-label="{{ 'Кто ты на этом Mac'|trans }}">
                 {% for p in participants %}<option value="{{ p.id }}" {{ p.id == meId ? 'selected' }}>{{ p.name }}</option>{% endfor %}
             </select>
-            <button class="button button--quiet" type="submit">Сохранить</button>
+            <button class="button button--quiet" type="submit">{{ 'Сохранить'|trans }}</button>
         </form>
     </div>
 
     <section class="block sharing-code">
-        <h2>Код для подключения</h2>
+        <h2>{{ 'Код для подключения'|trans }}</h2>
         {% if code %}
             {% set who = participants|filter(p => p.id == codeFor)|first %}
             <p class="sharing-code__value num" aria-live="polite">{{ code|slice(0, 3) }} {{ code|slice(3) }}</p>
-            <p class="hint">Для {{ who ? who.name : 'участника' }}. Действует 10 минут, один раз. Новый код отменяет этот.</p>
+            <p class="hint">{{ who ? 'Для %name%.'|trans({'%name%': who.name}) : 'Для участника.'|trans }} {{ 'Действует 10 минут, один раз. Новый код отменяет этот.'|trans }}</p>
         {% endif %}
         <form method="post" action="{{ path('web_sharing_code') }}" class="sharing-code__form">
-            <label class="label" for="code-for">Кто будет подключаться</label>
+            <label class="label" for="code-for">{{ 'Кто будет подключаться'|trans }}</label>
             <select id="code-for" class="input" name="participant">
                 {% for p in participants %}<option value="{{ p.id }}" {{ p.id != meId ? 'selected' }}>{{ p.name }}</option>{% endfor %}
             </select>
-            <button class="button" type="submit">Показать код</button>
+            <button class="button" type="submit">{{ 'Показать код'|trans }}</button>
         </form>
-        {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+        {% if error %}<p class="error" role="alert">{{ error|message }}</p>{% endif %}
     </section>
 
     <section class="block">
-        <div class="block__head"><h2>Подключённые Mac</h2><span class="muted num">{{ devices|length }}</span></div>
+        <div class="block__head"><h2>{{ 'Подключённые Mac'|trans }}</h2><span class="muted num">{{ devices|length }}</span></div>
         {% if devices is empty %}
-            <p class="hint">Пока никого.</p>
+            <p class="hint">{{ 'Пока никого.'|trans }}</p>
         {% else %}
             <table class="ledger">
                 <tbody>
@@ -71,11 +67,11 @@ sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp '{{ server }}'
                     <tr>
                         <td>{{ device.name }}</td>
                         <td><span class="pname">{{ avatar(device.participantId, device.participantName) }}{{ device.participantName }}</span></td>
-                        <td class="muted num">{{ device.lastSeenAt ? 'был ' ~ device.lastSeenAt|date('d.m H:i') : 'ещё не заходил' }}</td>
+                        <td class="muted num">{{ device.lastSeenAt ? 'был %time%'|trans({'%time%': device.lastSeenAt|date('d.m H:i')}) : 'ещё не заходил'|trans }}</td>
                         <td class="r">
                             <form method="post" action="{{ path('web_sharing_revoke', {id: device.id}) }}" class="inline"
-                                  onsubmit="return confirm('Отключить этот Mac? Чтобы вернуться, понадобится новый код.')">
-                                <button class="link link--danger" type="submit">отключить</button>
+                                  onsubmit="return confirm({{ 'Отключить этот Mac? Чтобы вернуться, понадобится новый код.'|trans|json_encode }})">
+                                <button class="link link--danger" type="submit">{{ 'отключить'|trans }}</button>
                             </form>
                         </td>
                     </tr>

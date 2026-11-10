@@ -1,195 +1,261 @@
-# Money spent — совместный учёт трат
+# Money spent — shared expenses for two
 
-Два участника записывают траты одной строкой (`17000 продукты`, `18,5 eur чатгпт 10.11`) — в браузере на
-`http://localhost:8080` или в Telegram-боте. Суммы приводятся к AMD по курсу ЦБ Армении на дату траты, есть итоги
-месяца, графики, взаиморасчёт, импорт старой заметки и выгрузка отчёта в PDF/CSV.
+[Русская версия](README.ru.md)
 
-Стек: PHP 8.5, Symfony 8.1, Doctrine DBAL 4 без ORM (DoctrineBundle 3, MigrationsBundle 4), PostgreSQL 16,
-Symfony Messenger + Scheduler, PHPUnit 13, PHPStan level 8, php-cs-fixer (PSR-12).
+Two people record what they spend with one short line, such as `17000 groceries` or `18,5 eur chatgpt 10.11`. They
+can do it in a native macOS app, in the browser at `http://localhost:8080`, or through a Telegram bot. Every amount is
+converted to AMD at the Central Bank of Armenia rate for the day of the expense. The app keeps:
 
-## Приложение для macOS (без Docker)
+- monthly totals and charts;
+- who owes whom;
+- shared and personal spending;
+- recurring payments.
 
-`build/Traty-1.0.0.dmg`: открыть, перетащить «Траты» в «Программы», запустить. Внутри PHP 8.5, PostgreSQL 16 и само
-приложение; Docker не нужен. Данные лежат в `~/Library/Application Support/MoneySpent` (база, журналы, случайные пароль
-БД и `APP_SECRET` в `secrets.json` с правами 0600). Меню «Траты → Открыть папку с данными».
+It can also import an old phone note and export a month as PDF or CSV. The interface is in English and Russian.
 
-Собрать заново (нужны Xcode Command Line Tools, Homebrew `php` и `postgresql@16`, composer):
+Stack: PHP 8.5, Symfony 8.1, Doctrine DBAL 4 without the ORM (DoctrineBundle 3, MigrationsBundle 4), PostgreSQL 16,
+Symfony Messenger + Scheduler, Symfony Translation and Intl, PHPUnit 13, PHPStan level 8, php-cs-fixer (PSR-12).
+
+## macOS app (no Docker)
+
+Open `build/Traty-1.0.0.dmg`, drag the app to Applications and start it. The bundle carries:
+
+- PHP 8.5;
+- PostgreSQL 16;
+- the web app itself.
+
+Data lives in `~/Library/Application Support/MoneySpent`: the database, logs, and `secrets.json` (mode 0600) with a
+random database password and `APP_SECRET`. To open the folder, use the app menu → Open data folder.
+
+To rebuild, you need Xcode Command Line Tools, Homebrew `php` and `postgresql@16`, and composer:
 
 ```bash
 make app
 ```
 
-`packaging/macos/build.sh` копирует код с `composer install --no-dev`, переносит PHP и PostgreSQL из Homebrew вместе со
-всеми их библиотеками (`bundle-runtime.php` переписывает пути на `@loader_path`), собирает Swift-обёртку (WKWebView) и
-подписывает всё ad hoc. Обёртка при запуске поднимает PostgreSQL на случайном порту `127.0.0.1` с паролем, прогоняет
-миграции, запускает `php -S` и воркер расписания; при выходе всё останавливает.
+What `packaging/macos/build.sh` does:
 
-Сборка не нотаризована: на своём маке открывается сразу, на чужом macOS при первом запуске попросит подтвердить
-(правый клик → «Открыть»). Собрана под архитектуру машины сборки (Apple Silicon).
+- copies the code with `composer install --no-dev`;
+- moves PHP and PostgreSQL out of Homebrew together with every library they load (`bundle-runtime.php` rewrites the
+  paths to `@loader_path`);
+- builds the Swift WKWebView wrapper;
+- signs everything ad hoc.
 
-### Общий учёт с другим Mac
+On launch the wrapper:
 
-1. На своём Mac: **Траты → Разрешить подключение**. Приложение начнёт слушать домашнюю сеть на порту 8765 и объявит
-   себя через Bonjour. macOS спросит, разрешить ли входящие подключения, — разрешить (после каждой пересборки
-   приложения вопрос может повториться). Затем **Доступ → Показать код** для второго участника.
-2. На втором Mac: поставить «Траты» из того же `.dmg`, при первом запуске выбрать свой Mac из списка (или ввести адрес
-   `http://имя.local:8765`) и ввести код. Код живёт 10 минут, одноразовый, после 5 неверных попыток сгорает.
-3. Работает, пока первый Mac включён и приложение открыто. Новые траты и переводы друг друга приходят уведомлениями
-   macOS (раз в 30 секунд).
+- starts PostgreSQL on a random `127.0.0.1` port with a password;
+- runs the migrations;
+- starts `php -S` and the scheduler worker.
 
-Без кода из сети ничего не открыть; страница «Доступ» видна только на главном Mac, оттуда же устройства отключаются.
-Трафик в сети не шифруется — включать доступ в домашней сети, не в публичной.
+It stops everything on quit. The wrapper follows the macOS language (Russian or English). The pages start in the
+same language and have their own RU / EN switch.
 
-## Быстрый старт (Docker и Telegram)
+The build is not notarized. It opens right away on the Mac that built it. On another Mac, macOS asks for confirmation
+on first launch (right click → Open). It is built for the architecture of the build machine (Apple Silicon).
 
-1. Создать бота у @BotFather, узнать свой Telegram id (например, у @userinfobot).
-2. Положить секреты в `.env.local` (файл не коммитится):
+### Sharing with a second Mac
+
+1. On your Mac choose **Allow connections** in the app menu. The app then listens to the home network on port 8765 and
+   announces itself over Bonjour. If macOS asks whether to accept incoming connections, allow it. If the firewall is on
+   and no question appears, the **Sharing** page shows the two `socketfilterfw` commands to run; repeat them after
+   every reinstall. Then open **Sharing → Show code** for the second person.
+2. On the second Mac:
+   - install the app from the same `.dmg`;
+   - choose your Mac from the list on first launch, or type `http://name.local:8765`;
+   - enter the code. It is valid for 10 minutes, works once, and is burned after 5 wrong tries.
+3. Sharing works while the first Mac is on and the app is open. New expenses and transfers of the other person arrive
+   as macOS notifications, checked every 30 seconds.
+
+Nothing opens from the network without a code. The Sharing page is visible on the main Mac only, and devices are
+revoked there. Traffic on the network is not encrypted, so turn sharing on at home, not on public Wi-Fi.
+
+## Quick start (Docker and Telegram)
+
+1. Create a bot with @BotFather and find your Telegram id, for example with @userinfobot.
+2. Put the secrets into `.env.local` (not committed):
 
    ```dotenv
    TELEGRAM_BOT_TOKEN=123456:ABC...
-   TELEGRAM_WEBHOOK_SECRET=длинная-случайная-строка
+   TELEGRAM_WEBHOOK_SECRET=a-long-random-string
    ALLOWED_TELEGRAM_IDS=111111111,222222222
    ```
 
-3. Поднять всё с нуля:
+3. Start everything from scratch:
 
    ```bash
    docker compose up -d --build
    ```
 
-   Сервис `init` ставит зависимости (если нет `vendor/`), прогоняет миграции, сидер валют и категорий, греет кеш
-   и подтягивает курсы за последние 7 дней.
-   После него стартуют `php-fpm`, `nginx` (порт `8080`), `worker`. Проверка: `curl localhost:8080/health`.
+   The `init` service:
 
-4. Открыть `http://localhost:8080`, завести двух участников — и можно пользоваться. Telegram не обязателен.
+   - installs dependencies when `vendor/` is missing;
+   - runs migrations and seeds currencies and categories;
+   - warms the cache and fetches rates for the last 7 days.
 
-5. По желанию подключить Telegram — один из двух вариантов:
-   - вебхук (нужен публичный HTTPS, например через cloudflared/ngrok):
-     `make webhook URL=https://bot.example.com`
-   - long polling для локальной разработки, без публичного адреса: `make poll`
+   After it, `php-fpm`, `nginx` (port `8080`) and `worker` start. Check with `curl localhost:8080/health`.
 
-   Оба участника пишут боту `/start`, а в вебе на странице «Участники» каждому указывается его Telegram id —
-   тогда записи из бота и из браузера относятся к одним и тем же людям.
+4. Open `http://localhost:8080` and add the two participants. Telegram is optional.
 
-## Веб-приложение
+5. To connect Telegram, use one of these:
+   - a webhook, which needs public HTTPS (for example through cloudflared or ngrok):
+     `make webhook URL=https://bot.example.com`;
+   - long polling for local development, with no public address: `make poll`.
 
-| Страница | Что там |
+   Both people send `/start` to the bot. On the Participants page each person gets their Telegram id, so that entries
+   from the bot and from the browser belong to the same people.
+
+## Web app
+
+### Overview `/`
+
+- **Entry line.** Choose who paid: one person, or **both, half each**. Choose what to record: an expense, or a transfer
+  to the other participant or to someone else. Choose whose expense it is: shared, the payer's own, or for the other
+  person.
+- **Month list.** Every row is edited in place, and the record keeps its id:
+  - date;
+  - amount and currency, with the base amount recalculated at the rate for that day;
+  - category, payer and whose expense;
+  - note.
+  On a narrow window each row folds into two or three lines.
+- **Filter** by shared and personal.
+- **Side panel:**
+  - debt line;
+  - total;
+  - categories;
+  - participants (paid / share);
+  - 12-month chart;
+  - transfer form.
+- **Export:** PDF and CSV buttons, and month switching.
+
+### Other pages
+
+| Page | What it has |
 |---|---|
-| Обзор `/` | поле ввода траты, кто платил, что записать (трата или перевод: кому — второму участнику или другому человеку), чья трата (общая / только платившего / за другого); фильтр списка по общим и личным; смена «чьей» прямо в списке; список трат месяца со сменой категории и удалением; линия долга; итог, категории, участники (заплатил / доля), график за 12 месяцев, форма перевода; кнопки «Отчёт PDF» и «CSV»; переключение месяцев |
-| Аналитика `/analytics` | период (месяц, 3, 6, 12 месяцев, всё время или свой), фильтр «все / общие / личные каждого»; доли общих и личных трат; потоки «кто платил → чья трата → категория»; хордовая диаграмма «чьи деньги ↔ категории»; кольцо категорий; столбцы по месяцам; таблица «категории × месяцы»; календарь по дням и дни недели; самые крупные траты; частые места из заметок. Графики рисуются на сервере в SVG, без внешних библиотек |
-| Импорт `/import` | вставить старую заметку или загрузить `.txt` — предпросмотр с датами, категориями и плательщиком по каждой строке, галочки, запись. Строка с одной датой (`07.11`) задаёт дату строкам под ней, строки без цифр пропускаются, имя в строке («от бориса») подставляет плательщика. Повторный импорт того же текста дублей не создаёт. Знак перед суммой по умолчанию значит «кто платил» (`+` — один участник, `−` — другой, сумма положительная); можно переключить на «минус — возврат». Понимает «драмм», «+ 5000» с пробелом и даты `05.11.2026` в любом месте строки. Курсы ЦБ за даты старых трат подтягиваются сразу |
-| Регулярные `/recurring` | подписки и всё, что повторяется каждый месяц: что и сколько, кто платит, чья трата, число месяца (31 — последний день). Трата записывается сама в свой день (воркер раз в час, приложение — ещё и при запуске); пропущенные месяцы дописываются, повтор одного месяца невозможен (uuid от id и месяца). Пауза, удаление. Готовую трату можно сделать регулярной кнопкой «↻» на обзоре |
-| Категории `/categories` | свои типы трат: добавить, переименовать, ключевые слова (через запятую), скрыть и вернуть. Скрытая категория не удаляется: старые траты остаются в ней, новые туда не попадают. «Прочее» скрыть нельзя |
-| Участники `/participants` | имена и (необязательно) Telegram id |
-| `/report/2026-11.pdf`, `/export/2026-11.csv` | выгрузка месяца |
+| Analytics `/analytics` | Periods: a month, 3, 6 or 12 months, all time, or custom. Filter by all, shared, or each person's own. Charts, drawn on the server as SVG with no libraries: shared vs personal, payer → owner → category flows, a chord diagram of whose money ↔ categories, a category donut, monthly columns, a category × month table, a calendar, weekdays, the largest expenses and the most frequent places from notes. |
+| Recurring `/recurring` | Subscriptions and anything that repeats monthly. Each row is edited in place: day of month (31 means the last day), category, note, payer (one person or both, half each), amount and currency, and whose expense it is. Pause and delete. The expense is written on its day: the worker checks hourly, and the app also checks at launch. Missed months are filled in, and a month can't be written twice (the UUID comes from the id and the month). The ↻ button on the overview makes any expense recurring. |
+| Import `/import` | Paste an old note or upload a `.txt` file. The preview shows the date, category, payer and note of every line, with a checkbox for each. A line holding only a date (`07.11`) dates the lines below it, lines without digits are skipped, and a name in the line sets the payer. Importing the same text twice adds nothing, and deleted lines can be imported again. A sign before the amount means who paid (`+` one person, `−` the other); it can be switched to "minus is a refund". |
+| Categories `/categories` | Your own expense types: add, rename, set keywords, hide and show again. A hidden category keeps its old expenses. "Other" can't be hidden. |
+| Currencies `/currencies` | Add any ISO 4217 currency, with optional words for the entry line (`лари, ₾`). Hide and show again; a hidden currency keeps the records made in it. The base currency can't be hidden. Rates come from the Central Bank of Armenia (and the Bank of Russia for display) when they publish that currency. |
+| Participants `/participants` | Names, optional Telegram id, and a badge color. |
+| Sharing `/sharing` | Network address, codes for a second Mac, connected devices, firewall help. Visible on the main Mac only. |
+| `/report/2026-11.pdf`, `/export/2026-11.csv` | One month as a file. |
 
-Под переключателем — текущие курсы остальных валют к выбранной, источник на выбор: ЦБ Армении или ЦБ России (только
-для показа; траты в AMD всегда по ЦБ Армении на дату траты).
+The currency switch in the header (every shown currency) recalculates all totals, the debt, charts and the PDF at the
+latest rate. Under it are the current rates of the other currencies, from the Central Bank of Armenia or the Bank of
+Russia. The amount of an expense in its own currency never changes.
 
-Переключатель AMD / EUR / RUB / USD в шапке пересчитывает все итоги, долг, графики и PDF в выбранную валюту по
-последнему курсу ЦБ; под итогом видны эквиваленты в остальных валютах. Суммы трат в своей валюте не пересчитываются.
+In the Docker setup the web app listens on `127.0.0.1` only and answers only to the hosts in `TRUSTED_HOSTS`. There is
+no password login: the app is local, and a second Mac connects with a one-time code.
 
-Приложение слушает только `127.0.0.1` и отвечает только на хосты из `TRUSTED_HOSTS`, так что из локальной сети
-его не видно. Входа по паролю нет — он не нужен, пока доступ только с этого компьютера. Чтобы открывать с
-телефона, понадобится вход по паролю: это отдельная доработка.
+## Writing expenses
 
-## Как писать траты
+The entry line understands Russian and English words at the same time, whatever the interface language.
 
-| Сообщение | Что получится |
+| Message | Result |
 |---|---|
-| `17000 продукты` | 17 000 AMD, «Продукты», сегодня, пополам |
-| `18,5 eur чатгпт 10.11` | 18.50 EUR → AMD по курсу на 10.11, «Подписки» |
-| `9700 доставка кари вчера` | вчерашняя дата, заметка «кари» |
-| `700 кофе лично` | личная трата (`payer_only`), в долг не идёт |
-| `3000 цветы ей` | целиком за другого участника (`other_only`) |
-| `$12.99 icloud`, `40 usd` | доллары → AMD по курсу ЦБ |
-| `алиса скинула 5000`, `скинул алисе 3000 руб` | перевод между участниками: уменьшает долг |
-| `скинул маме 10000` | перевод третьему человеку: личная трата отправителя в «Переводы», заметка «→ маме» |
-| `-2500 руб от алисы` | возврат: отрицательная сумма уменьшает итоги и долг |
+| `17000 groceries` / `17000 продукты` | 17,000 AMD, Groceries, today, shared |
+| `18,5 eur chatgpt 10.11` | 18.50 EUR → AMD at the rate of 10 November, Subscriptions |
+| `9700 delivery curry yesterday` | yesterday's date, note "curry" |
+| `700 coffee personal` / `700 кофе лично` | the payer's own expense, no debt |
+| `3000 flowers her` / `3000 цветы ей` | entirely for the other person |
+| `$12.99 icloud`, `40 usd`, `50 лари` | any shown currency → AMD at the bank rate |
+| `alice sent 5000`, `алиса скинула 5000` | a transfer between the two: lowers the debt |
+| `sent mom 10000` | a transfer to someone else: the sender's own expense in Transfers, note "→ mom" |
+| `-2500 rub from alice` | a refund: a negative amount lowers totals and debt |
 
-- Сумма — первое число; разделитель `,` или `.`; валюта отдельным словом или слитно (`2500р`, `€18.5`), по умолчанию
-  AMD.
-- Дата: `дд.мм`, `дд.мм.гг(гг)`, `сегодня`, `вчера`, `позавчера`. Дата без года из будущего считается прошлогодней.
-- Категория ищется по ключевым словам (`config/packages/reference_data.yaml`). Ключ от 4 букв совпадает и по
-  началу слова (`магаз` → «магазин»). Нет совпадений — «Прочее». Несколько — трата сохраняется в «Прочее», а под
-  карточкой появляются кнопки выбора.
-- Всё остальное уходит в заметку.
+- **Amount.** The first number. The decimal separator is `,` or `.`. The currency goes after the number as a separate
+  word or joined to it (`2500р`, `€18.5`); the default is AMD.
+- **Date.** `dd.mm`, `dd.mm.yy(yy)`, `today` / `сегодня`, `yesterday` / `вчера`. A date without a year that would be in
+  the future means last year.
+- **Category.** Found by keywords; a keyword of 4+ letters also matches the start of a word. No match means Other.
+  Several matches save the expense in Other, and the bot offers buttons to pick one.
+- **Note.** Everything else becomes the note.
 
-## Команды
+## Bot commands
 
-| Команда | Что делает |
+| Command | What it does |
 |---|---|
-| `/start` | регистрация и справка |
-| `/month`, `/month 10`, `/month 10.2025` | итоги месяца: всего в AMD, по категориям, по участникам (заплатил / доля) |
-| `/balance` | кто кому должен за всё время |
-| `/settle 2500 руб` | мой перевод второму участнику |
-| `/undo` | мягко удалить мою последнюю запись (трату или перевод) |
-| `/export`, `/export 10` | CSV трат за месяц файлом |
+| `/start` | register and show help |
+| `/month`, `/month 10`, `/month 10.2025` | month totals: total in AMD, by category, by person (paid / share) |
+| `/balance` | who owes whom, all time |
+| `/settle 2500 rub` | my transfer to the other person |
+| `/undo` | soft-delete my last entry (expense or transfer) |
+| `/export`, `/export 10` | the month's expenses as a CSV file |
+| `/language en`, `/language ru` | reply language; by default it follows the Telegram app language |
 
-Кнопки под карточкой траты: «Категория» и «Удалить». Менять и удалять трату может только тот, кто её записал.
-Сообщения от id не из `ALLOWED_TELEGRAM_IDS` молча игнорируются.
+The buttons under an expense card are Category and Delete. Only the author of an expense can change or delete it
+through the bot. Messages from ids outside `ALLOWED_TELEGRAM_IDS` are silently ignored. On the 1st of every month at
+10:00 Yerevan time, the worker sends both people last month's summary and the current balance.
 
-1-го числа в 10:00 по Еревану воркер присылает обоим сводку за прошлый месяц и текущий баланс.
+## Development
 
-## Разработка
-
-Все команды выполняются в контейнерах:
+All commands run in the containers:
 
 ```bash
-make check      # cs + phpstan + все тесты
-make test-unit  # только доменные тесты, без БД
-make test       # создаёт app_test, мигрирует, гоняет unit + integration
-make rates      # подтянуть курсы за 7 дней и пересчитать траты без курса
-make sh         # shell в php-fpm
+make check      # cs + phpstan + all tests
+make test-unit  # domain tests only, no database
+make test       # creates app_test, migrates, runs unit + integration
+make rates      # fetch 7 days of rates and recalculate expenses without a rate
+make sh         # shell in php-fpm
 ```
 
-## Архитектура
+## Architecture
 
 ```
-src/Domain          чистая логика, без БД/Telegram/Symfony: Money, Currency, ExchangeRate, SplitCalculator,
-                    BalanceCalculator, ExpenseParser. Покрыта тестами на 100 %.
-src/Application     сценарии: запись траты/перевода, отчёт месяца, баланс, undo, экспорт, обновление курсов.
-src/Infrastructure  DBAL-репозитории (Query Builder), источник курсов cb.am, HTTP-клиент Telegram.
-src/Bot             разбор апдейта, роутинг команд и кнопок, тексты ответов.
-src/Web             локальное веб-приложение: контроллеры, сборщик обзора, аналитика, раскладки графиков
-                    (src/Web/Chart: хорды, sankey, кольцо — чистая геометрия), PDF (dompdf), защита запросов.
-packaging/macos     сборка .app/.dmg: Swift-обёртка, перенос PHP и PostgreSQL, php.ini, роутер для php -S.
-templates/web       Twig-шаблоны страниц и PDF; public/app.css — стили (принципы в DESIGN.md).
-src/Controller      вебхук и /health. src/Console — CLI. src/Scheduler — расписание воркера.
+src/Domain          pure logic, no database, Telegram or Symfony: Money, Currency, ExchangeRate, SplitCalculator,
+                    BalanceCalculator, ExpenseParser.
+src/Application     use cases: recording expenses and transfers, inline edits, recurring expenses, categories,
+                    currencies, month report, balance, undo, export, rate updates, sharing.
+src/Infrastructure  DBAL repositories (Query Builder), cb.am and cbr.ru rate sources, ISO currency data,
+                    Telegram HTTP client.
+src/Bot             update parsing, command and button routing, reply texts.
+src/Web             the web app: controllers, overview builder, analytics, chart layouts (chords, Sankey, donut —
+                    pure geometry), PDF (dompdf), language, request protection.
+translations        English texts; the keys are the Russian source strings, so a missing translation shows Russian.
+packaging/macos     the .app/.dmg build: Swift wrapper (en/ru), bundled PHP and PostgreSQL, php.ini, router for php -S.
+templates/web       Twig templates of the pages and the PDF; public/app.css holds the styles.
 ```
 
-- Новая команда бота — класс, реализующий `BotCommand`; новая кнопка — `BotCallback`. Регистрация автоматическая
-  через теги, роутеры не меняются.
-- Обработчики не шлют сообщения сами, а возвращают `Reply`. `UpdateProcessor` в одной транзакции фиксирует
-  `update_id` и все записи, а отправляет ответы после коммита.
+- **Bot extensions.** A new bot command is a class implementing `BotCommand`, and a new button is a `BotCallback`.
+  Registration goes through tags, so the routers don't change.
+- **Replies.** Handlers return `Reply` objects instead of sending messages. `UpdateProcessor` stores the `update_id`
+  and every record in one transaction, and sends the replies after the commit.
 
-## Решения, которые стоит знать
+## Decisions worth knowing
 
-- **Деньги** — только `bigint` в минорных единицах. Exponent и алиасы валют лежат в таблице `currency` (сидятся
-  из `reference_data.yaml`), в коде не захардкожены. Конвертация через bcmath, округление half away from zero.
-- **Общие и личные** — «чья трата» выводится из `split`: `equal` — общая, `payer_only` — личная платившего, `other_only` —
-  личная второго (`SplitType::ownerId`). Новых колонок нет, баланс и аналитика считаются из одного поля.
-- **Справочники** — `app:seed` только добавляет недостающие валюты и категории; дальше категориями управляет
-  пользователь, правки при перезапуске не затираются.
-- **Деление** — нечётный минорный остаток (1 драм) достаётся плательщику, сумма долей всегда равна сумме траты.
-- **Баланс** — однозначный список «X должен Y N AMD»; знак не нужен. Перевод на показанную сумму обнуляет баланс
-  (покрыто тестом).
-- **Идемпотентность** — таблица `telegram_update` (повтор того же `update_id` ничего не делает) плюс
-  `expense.uuid` = UUID v5 от `chat_id:message_id`, так что одно и то же сообщение не создаст две траты.
-- **Курсы** — ЦБ Армении (SOAP). Для ещё не опубликованной даты cb.am отдаёт курс последнего рабочего дня, поэтому
-  курс сохраняется под датой, которую вернул ЦБ, а не под запрошенной. Воркер ежедневно в 13:30 по Еревану
-  запрашивает последние 3 дня. Трата берёт курс на свою дату или ближайший предыдущий; если курса нет совсем, она
-  сохраняется с `rate_to_base = NULL`, бот предупреждает, а воркер досчитает её, когда курс появится. В итоги и
-  баланс такие траты не входят до пересчёта, бот пишет, сколько их. Зафиксированный курс больше не меняется.
-- **Cron** — Symfony Scheduler (поверх Messenger) в контейнере `worker`, без системного cron.
-- **SQL** — Query Builder везде, кроме upsert и `INSERT ... RETURNING` (у QB их нет) и DDL в миграции.
-- **`/settle`** рассчитан на двух участников: получатель — второй зарегистрированный.
-- **Логи** — канал `http_client` выключен: в URL запросов к Telegram есть токен бота.
-- **Веб без сессий**: защита от CSRF — проверка `Sec-Fetch-Site`/`Origin` на всех изменяющих запросах
-  (`SameOriginGuard`), плюс `TRUSTED_HOSTS` против DNS rebinding, CSP и `X-Frame-Options: DENY`.
-  Права в вебе общие: в браузере любой из двоих может править любую трату; в боте — только свои.
-- **PDF** собирается на сервере (dompdf) без внешних ресурсов: графики нарисованы таблицами, а не JS.
+- **Money.** Amounts are stored only as `bigint` minor units. Currencies live in the `currency` table: the exponent,
+  the words that name them, and whether they are shown. Seeding only adds what is missing. Conversion uses bcmath,
+  rounding half away from zero.
+- **Shared and personal.** Whose expense it is comes from `split`:
+  - `equal` is shared;
+  - `payer_only` belongs to the payer;
+  - `other_only` belongs to the other person (`SplitType::ownerId`).
 
-## Идеи на потом
+  Changing the payer keeps the owner.
+- **Both paid.** "Both, half each" is stored as two shared halves, one paid by each person. The totals count the whole
+  amount, and the debts cancel out. An odd minor unit goes to the first person.
+- **Splitting.** An odd minor unit goes to the payer; the shares always add up to the amount.
+- **Idempotency.** The `telegram_update` table ignores a repeated `update_id`. On top of that, `expense.uuid` is a
+  UUID v5 of `chat_id:message_id`, so one message never makes two expenses.
+- **Rates.** The Central Bank of Armenia (SOAP).
+  - For a date not yet published, cb.am returns the last working day's rate, so the rate is stored under the date the
+    bank returned.
+  - The worker asks for the last 3 days every day at 13:30 Yerevan time. An expense takes the rate of its day or the
+    closest earlier one.
+  - With no rate at all, the expense is saved with `rate_to_base = NULL` and filled in once the rate appears. Until
+    then it is left out of totals, and the bot says how many such expenses there are.
+  - Editing the date or currency of an expense takes the rate anew.
+- **Languages.** The `lang` cookie or the browser's Accept-Language picks ru or en for the pages. Bot replies use the
+  participant's saved language, or the Telegram app language. Default category titles are translated; renamed ones
+  show as typed.
+- **Web without sessions.** CSRF protection checks `Sec-Fetch-Site` / `Origin` on every changing request
+  (`SameOriginGuard`). `TRUSTED_HOSTS` blocks DNS rebinding; CSP and `X-Frame-Options: DENY` are set. A second Mac
+  gets a 256-bit device token in an HttpOnly cookie; only its SHA-256 is stored.
+- **Logs.** The `http_client` channel is off, because Telegram request URLs contain the bot token.
+- **PDF.** Rendered on the server by dompdf with no external resources; charts are tables, not JS.
 
-Пропорции, отличные от 50/50; бюджеты по категориям с алертами; вход по паролю для доступа с телефона.
+## Ideas for later
+
+- Shares other than 50/50.
+- Category budgets with alerts.
+- Password login for phone access.

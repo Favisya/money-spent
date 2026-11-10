@@ -18,6 +18,9 @@ interface BotCommand
      */
     public function name(): string;
 
+    /**
+     * Russian source text of the menu description; translated with the bot domain where it is shown.
+     */
     public function description(): string;
 
     /**

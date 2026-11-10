@@ -19,7 +19,7 @@ rm -rf "$OUT"
 mkdir -p "$APP/Contents/MacOS" "$RES/app"
 
 step "Application code"
-for item in bin config migrations public src templates composer.json composer.lock symfony.lock .env; do
+for item in bin config migrations public src templates translations composer.json composer.lock symfony.lock .env; do
     cp -R "$ROOT/$item" "$RES/app/"
 done
 rm -f "$RES/app/config/services_test.yaml"
@@ -36,6 +36,7 @@ cp "$HERE/php.ini" "$HERE/router.php" "$RES/runtime/"
 step "Native wrapper"
 swiftc -O -target "$(uname -m)-apple-macos13.0" -o "$APP/Contents/MacOS/MoneySpent" "$HERE"/Sources/*.swift
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD_NUMBER/" "$HERE/Info.plist" > "$APP/Contents/Info.plist"
+cp -R "$HERE"/Resources/*.lproj "$RES/"
 
 step "Icon"
 swift "$HERE/make-icon.swift" "$OUT/AppIcon.iconset"

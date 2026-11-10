@@ -60,4 +60,13 @@ final class MonthlyRecurrenceTest extends TestCase
 
         new MonthlyRecurrence(32);
     }
+
+    public function testFirstMonthIsThisOneWhileTheDayIsAhead(): void
+    {
+        $today = new DateTimeImmutable('2026-11-10');
+
+        self::assertSame('2026-11-01', (new MonthlyRecurrence(10))->firstMonth($today)->format('Y-m-d'));
+        self::assertSame('2026-11-01', (new MonthlyRecurrence(31))->firstMonth($today)->format('Y-m-d'));
+        self::assertSame('2026-12-01', (new MonthlyRecurrence(9))->firstMonth($today)->format('Y-m-d'));
+    }
 }

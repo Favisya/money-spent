@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console;
 
+use App\Bot\Command\CommandMenu;
 use App\Bot\Telegram\TelegramAdminClient;
 use App\Bot\Telegram\TelegramApiException;
 use App\Bot\Telegram\Update;
@@ -27,6 +28,7 @@ final class PollUpdatesCommand extends Command
         private readonly TelegramAdminClient $telegram,
         private readonly UpdateProcessor $processor,
         private readonly LoggerInterface $logger,
+        private readonly CommandMenu $menu,
     ) {
         parent::__construct();
     }
@@ -42,6 +44,7 @@ final class PollUpdatesCommand extends Command
         $offset   = 0;
 
         $this->telegram->deleteWebhook();
+        $this->menu->publish();
         $output->writeln('Polling Telegram updates...');
 
         while (time() < $deadline) {

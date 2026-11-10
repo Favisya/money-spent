@@ -132,4 +132,18 @@ final class MoneyTest extends TestCase
 
         new Currency('EUR', 9);
     }
+
+    public function testSplitKeepsTheWholeAmount(): void
+    {
+        $amd = new Currency('AMD', 0);
+
+        self::assertSame([501, 500], array_map(
+            static fn (Money $part): int => $part->minor,
+            Money::ofMinor(1001, $amd)->split(2),
+        ));
+        self::assertSame([-34, -33, -33], array_map(
+            static fn (Money $part): int => $part->minor,
+            Money::ofMinor(-100, $amd)->split(3),
+        ));
+    }
 }

@@ -1,32 +1,34 @@
 {% extends 'web/base.html.twig' %}
 
-{% block title %}Импорт — Траты{% endblock %}
+{% block title %}{{ 'Импорт'|trans }} — {{ 'Траты'|trans }}{% endblock %}
 
 {% block body %}
     <div class="pagehead">
-        <h1>Импорт заметки</h1>
-        <p class="muted measure">Вставь старую заметку целиком или загрузи файл. Одна трата — одна строка, как в боте.
-            Строка, в которой только дата (<code>07.11</code>), задаёт дату для строк под ней. Перед записью покажу,
-            что распознал. Повторный импорт того же текста дублей не создаст. Удалённые траты из этой заметки запишутся снова. А если в старых тратах не было пометки «на что», повторная вставка той же заметки её допишет.</p>
+        <h1>{{ 'Импорт заметки'|trans }}</h1>
+        <p class="muted measure">{{ 'Вставь старую заметку целиком или загрузи файл. Одна трата — одна строка, как в боте.'|trans }}
+            {{ 'Строка, в которой только дата (<code>07.11</code>), задаёт дату для строк под ней.'|trans|raw }}
+            {{ 'Перед записью покажу, что распознал. Повторный импорт того же текста дублей не создаст. Удалённые траты из этой заметки запишутся снова. А если в старых тратах не было пометки «на что», повторная вставка той же заметки её допишет.'|trans }}</p>
     </div>
 
     {% if result is defined %}
-        <p class="notice" role="status">Записано трат: {{ result.imported }}{% if result.duplicates > 0 %}, пропущено
-            уже импортированных: {{ result.duplicates }}{% endif %}{% if result.converted > 0 %}, пересчитано
-            по курсу ЦБ: {{ result.converted }}{% endif %}{% if result.notesFilled > 0 %}, дописано заметок «на что»:
-            {{ result.notesFilled }}{% endif %}. <a href="{{ path('web_dashboard') }}">К обзору</a></p>
+        <p class="notice" role="status">
+            {{- 'Записано трат: %count%'|trans({'%count%': result.imported}) -}}
+            {%- if result.duplicates > 0 %}, {{ 'пропущено уже импортированных: %count%'|trans({'%count%': result.duplicates}) }}{% endif -%}
+            {%- if result.converted > 0 %}, {{ 'пересчитано по курсу ЦБ: %count%'|trans({'%count%': result.converted}) }}{% endif -%}
+            {%- if result.notesFilled > 0 %}, {{ 'дописано заметок «на что»: %count%'|trans({'%count%': result.notesFilled}) }}{% endif -%}
+            . <a href="{{ path('web_dashboard') }}">{{ 'К обзору'|trans }}</a></p>
     {% endif %}
 
     {% if preview is not defined %}
         <form class="block import-form" method="post" action="{{ path('web_import_preview') }}" enctype="multipart/form-data">
-            <label class="label" for="import-text">Текст заметки</label>
+            <label class="label" for="import-text">{{ 'Текст заметки'|trans }}</label>
             <textarea id="import-text" class="input textarea" name="text" rows="14"
-                      placeholder="07.11&#10;17000 продукты&#10;9700 доставка кари&#10;18,5 eur чатгпт 10.11&#10;-2500 руб от алисы">{{ text }}</textarea>
-            <label class="label" for="import-file">или файл (.txt, .md, до 1 МБ)</label>
+                      placeholder="{{ '07.11\n17000 продукты\n9700 доставка кари\n18,5 eur чатгпт 10.11\n-2500 руб от алисы'|trans }}">{{ text }}</textarea>
+            <label class="label" for="import-file">{{ 'или файл (.txt, .md, до 1 МБ)'|trans }}</label>
             <input id="import-file" class="input" type="file" name="file" accept=".txt,.md,.csv,text/plain">
             <div class="grid2">
                 <div>
-                    <label class="label" for="import-payer">Кто платил, если в строке не сказано</label>
+                    <label class="label" for="import-payer">{{ 'Кто платил, если в строке не сказано'|trans }}</label>
                     <select id="import-payer" class="input" name="payer">
                         {% for p in participants %}
                             <option value="{{ p.id }}" {{ p.id == payerId ? 'selected' }}>{{ p.name }}</option>
@@ -34,16 +36,16 @@
                     </select>
                 </div>
                 <div>
-                    <label class="label" for="import-date">Дата, если её нет ни в строке, ни выше</label>
+                    <label class="label" for="import-date">{{ 'Дата, если её нет ни в строке, ни выше'|trans }}</label>
                     <input id="import-date" class="input" type="date" name="date" value="{{ date }}" max="{{ 'now'|date('Y-m-d') }}">
                 </div>
             </div>
             <fieldset class="signs">
-                <legend class="label">Что значит знак перед суммой</legend>
+                <legend class="label">{{ 'Что значит знак перед суммой'|trans }}</legend>
                 <label><input type="radio" name="sign_mode" value="refund" {{ signMode != 'payer' ? 'checked' }}>
-                    минус — возврат денег, плюс ничего не значит</label>
+                    {{ 'минус — возврат денег, плюс ничего не значит'|trans }}</label>
                 <label><input type="radio" name="sign_mode" value="payer" {{ signMode == 'payer' ? 'checked' }}>
-                    знак показывает, кто платил:</label>
+                    {{ 'знак показывает, кто платил:'|trans }}</label>
                 <span class="signs__pair">
                     <label for="plus-payer">+</label>
                     <select id="plus-payer" class="input" name="plus_payer">
@@ -54,10 +56,10 @@
                         {% for p in participants %}<option value="{{ p.id }}" {{ p.id == minusPayer ? 'selected' }}>{{ p.name }}</option>{% endfor %}
                     </select>
                 </span>
-                <p class="hint">Строки без знака запишутся на «Кто платил» выше. Имя в строке («от алисы») важнее знака.</p>
+                <p class="hint">{{ 'Строки без знака запишутся на «Кто платил» выше. Имя в строке («от алисы») важнее знака.'|trans }}</p>
             </fieldset>
-            {% if error is defined %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-            <button class="button" type="submit">Разобрать</button>
+            {% if error is defined %}<p class="error" role="alert">{{ error|message }}</p>{% endif %}
+            <button class="button" type="submit">{{ 'Разобрать'|trans }}</button>
         </form>
     {% else %}
         {% set rows = preview.expenses %}
@@ -69,20 +71,20 @@
             <input type="hidden" name="plus_payer" value="{{ plusPayer }}">
             <input type="hidden" name="minus_payer" value="{{ minusPayer }}">
             <div class="block__head">
-                <h2>Распознано трат: <span class="num">{{ rows|length }}</span>{% if preview.transfers is not empty %}, переводов:
+                <h2>{{ 'Распознано трат:'|trans }} <span class="num">{{ rows|length }}</span>{% if preview.transfers is not empty %}, {{ 'переводов:'|trans }}
                     <span class="num">{{ preview.transfers|length }}</span>{% endif %}</h2>
-                {% if preview.errorCount > 0 %}<span class="warn">не разобрано строк: {{ preview.errorCount }}</span>{% endif %}
+                {% if preview.errorCount > 0 %}<span class="warn">{{ 'не разобрано строк: %count%'|trans({'%count%': preview.errorCount}) }}</span>{% endif %}
             </div>
             <table class="ledger">
                 <thead>
                 <tr>
-                    <th scope="col"><span class="sr">Записать</span></th>
-                    <th scope="col">Строка</th>
-                    <th scope="col">Дата</th>
-                    <th scope="col">Категория</th>
-                    <th scope="col">На что</th>
-                    <th scope="col">Платил</th>
-                    <th scope="col" class="r">Сумма</th>
+                    <th scope="col"><span class="sr">{{ 'Записать'|trans }}</span></th>
+                    <th scope="col">{{ 'Строка'|trans }}</th>
+                    <th scope="col">{{ 'Дата'|trans }}</th>
+                    <th scope="col">{{ 'Категория'|trans }}</th>
+                    <th scope="col">{{ 'На что'|trans }}</th>
+                    <th scope="col">{{ 'Платил'|trans }}</th>
+                    <th scope="col" class="r">{{ 'Сумма'|trans }}</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -90,14 +92,14 @@
                     {% if row.kind.value == 'expense' %}
                         <tr>
                             <td><input type="checkbox" name="lines[]" value="{{ row.lineNumber }}" checked
-                                       aria-label="Записать строку {{ row.lineNumber }}"></td>
+                                       aria-label="{{ 'Записать строку %line%'|trans({'%line%': row.lineNumber}) }}"></td>
                             <td><span class="muted num">{{ row.lineNumber }}</span> {{ row.text }}</td>
                             <td class="num">{{ row.date|date('d.m.Y') }}</td>
-                            <td>{{ row.categoryTitle }}{% if row.expense.categoryAmbiguous %} <span class="tag">неоднозначно</span>{% endif %}</td>
+                            <td>{{ row.categoryTitle|trans }}{% if row.expense.categoryAmbiguous %} <span class="tag">{{ 'неоднозначно'|trans }}</span>{% endif %}</td>
                             <td><input class="note-edit__input note-edit__input--wide" name="line_note[{{ row.lineNumber }}]" maxlength="255"
-                                       value="{{ row.expense.note }}" placeholder="+ на что" aria-label="На что, строка {{ row.lineNumber }}"></td>
+                                       value="{{ row.expense.note }}" placeholder="{{ '+ на что'|trans }}" aria-label="{{ 'На что, строка %line%'|trans({'%line%': row.lineNumber}) }}"></td>
                             <td>
-                                <select class="select-bare" name="line_payer[{{ row.lineNumber }}]" aria-label="Кто платил">
+                                <select class="select-bare" name="line_payer[{{ row.lineNumber }}]" aria-label="{{ 'Кто платил'|trans }}">
                                     {% for p in participants %}
                                         <option value="{{ p.id }}" {{ p.id == row.payerId ? 'selected' }}>{{ p.name }}</option>
                                     {% endfor %}
@@ -109,31 +111,31 @@
                         {% set tr = row.transfer %}
                         <tr>
                             <td><input type="checkbox" name="lines[]" value="{{ row.lineNumber }}" checked
-                                       aria-label="Записать строку {{ row.lineNumber }}"></td>
+                                       aria-label="{{ 'Записать строку %line%'|trans({'%line%': row.lineNumber}) }}"></td>
                             <td><span class="muted num">{{ row.lineNumber }}</span> {{ row.text }}</td>
                             <td class="num">{{ row.date|date('d.m.Y') }}</td>
-                            <td><span class="tag">{{ tr.betweenParticipants ? 'перевод между вами' : 'перевод другому' }}</span></td>
+                            <td><span class="tag">{{ tr.betweenParticipants ? 'перевод между вами'|trans : 'перевод другому'|trans }}</span></td>
                             <td class="muted">{{ tr.note }}</td>
                             <td><span class="pname">{{ avatar(tr.from.id, tr.from.name) }}{{ tr.from.name }}</span> → {% if tr.to %}<span class="pname">{{ avatar(tr.to.id, tr.to.name) }}{{ tr.to.name }}</span>{% else %}{{ tr.outsider }}{% endif %}</td>
                             <td class="r num">{{ tr.amount|money }}</td>
                         </tr>
                     {% elseif row.kind.value == 'date' %}
-                        <tr class="row-date"><td></td><td colspan="6"><span class="muted num">{{ row.lineNumber }}</span> дата {{ row.date|date('d.m.Y') }}</td></tr>
+                        <tr class="row-date"><td></td><td colspan="6"><span class="muted num">{{ row.lineNumber }}</span> {{ 'дата %date%'|trans({'%date%': row.date|date('d.m.Y')}) }}</td></tr>
                     {% elseif row.kind.value == 'comment' %}
-                        <tr class="row-date"><td></td><td colspan="6"><span class="num">{{ row.lineNumber }}</span> {{ row.text }} — без суммы, пропускаю</td></tr>
+                        <tr class="row-date"><td></td><td colspan="6"><span class="num">{{ row.lineNumber }}</span> {{ row.text }} — {{ 'без суммы, пропускаю'|trans }}</td></tr>
                     {% elseif row.kind.value == 'error' %}
                         <tr class="row-error">
                             <td></td>
                             <td colspan="6"><span class="muted num">{{ row.lineNumber }}</span> {{ row.text }}
-                                <span class="error">{{ row.error }}</span></td>
+                                <span class="error">{{ row.error|message }}</span></td>
                         </tr>
                     {% endif %}
                 {% endfor %}
                 </tbody>
             </table>
             <p class="actions">
-                {% if preview.records is not empty %}<button class="button" type="submit">Записать отмеченные</button>{% endif %}
-                <a class="button button--quiet" href="{{ path('web_import') }}">Начать заново</a>
+                {% if preview.records is not empty %}<button class="button" type="submit">{{ 'Записать отмеченные'|trans }}</button>{% endif %}
+                <a class="button button--quiet" href="{{ path('web_import') }}">{{ 'Начать заново'|trans }}</a>
             </p>
         </form>
     {% endif %}

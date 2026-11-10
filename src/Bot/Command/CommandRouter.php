@@ -7,6 +7,7 @@ namespace App\Bot\Command;
 use App\Bot\BotContext;
 use App\Bot\Reply\Reply;
 use App\Bot\Reply\TextReply;
+use App\Bot\View\BotTranslator;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 final readonly class CommandRouter
@@ -19,6 +20,7 @@ final readonly class CommandRouter
     public function __construct(
         #[AutowireIterator(BotCommand::TAG)]
         private iterable $commands,
+        private BotTranslator $translator,
     ) {
     }
 
@@ -37,6 +39,9 @@ final readonly class CommandRouter
             }
         }
 
-        return [new TextReply($context->chatId, 'Не знаю такую команду. Список команд — /start')];
+        return [new TextReply(
+            $context->chatId,
+            $this->translator->text('Не знаю такую команду. Список команд — /start'),
+        )];
     }
 }

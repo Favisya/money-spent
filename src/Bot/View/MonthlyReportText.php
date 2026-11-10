@@ -11,6 +11,7 @@ final readonly class MonthlyReportText
     public function __construct(
         private MoneyFormatter $money,
         private MonthNames $months,
+        private BotTranslator $translator,
     ) {
     }
 
@@ -19,40 +20,42 @@ final readonly class MonthlyReportText
         $title = $this->months->label($report->period);
 
         if ($report->isEmpty()) {
-            return sprintf('📊 <b>%s</b>: трат нет.', $title);
+            return '📊 ' . $this->translator->text('<b>%month%</b>: трат нет.', ['%month%' => $title]);
         }
 
         $lines = [
             sprintf('📊 <b>%s</b>', $title),
-            sprintf('Всего: <b>%s</b>', $this->money->format($report->total)),
+            $this->translator->text('Всего: <b>%total%</b>', ['%total%' => $this->money->format($report->total)]),
             '',
-            '<b>По категориям</b>',
+            '<b>' . $this->translator->text('По категориям') . '</b>',
         ];
 
         foreach ($report->categories as $category) {
             $lines[] = sprintf(
                 '• %s — %s (%d)',
-                Html::escape($category->title),
+                Html::escape($this->translator->text($category->title)),
                 $this->money->format($category->amount),
                 $category->count,
             );
         }
 
         $lines[] = '';
-        $lines[] = '<b>По участникам</b>';
+        $lines[] = '<b>' . $this->translator->text('По участникам') . '</b>';
 
         foreach ($report->participants as $total) {
-            $lines[] = sprintf(
-                '• %s: заплатил(а) %s, доля %s',
-                Html::escape($total->participant->name),
-                $this->money->format($total->paid),
-                $this->money->format($total->share),
-            );
+            $lines[] = '• ' . $this->translator->text('%name%: заплатил(а) %paid%, доля %share%', [
+                '%name%'  => Html::escape($total->participant->name),
+                '%paid%'  => $this->money->format($total->paid),
+                '%share%' => $this->money->format($total->share),
+            ]);
         }
 
         if ($report->pendingCount > 0) {
             $lines[] = '';
-            $lines[] = sprintf('⚠️ Трат без курса, не вошли в итог: %d.', $report->pendingCount);
+            $lines[] = '⚠️ ' . $this->translator->text(
+                'Трат без курса, не вошли в итог: %count%.',
+                ['%count%' => $report->pendingCount],
+            );
         }
 
         return implode("\n", $lines);

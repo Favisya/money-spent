@@ -11,7 +11,7 @@ use DateTimeImmutable;
 final readonly class RecurringDraft
 {
     public function __construct(
-        public int $payerId,
+        public ?int $payerId,
         public Money $amount,
         public int $categoryId,
         public SplitType $split,

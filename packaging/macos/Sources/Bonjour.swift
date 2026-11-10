@@ -18,7 +18,7 @@ final class Bonjour: NSObject, NetServiceDelegate, NetServiceBrowserDelegate {
 
     func publish(port: Int) {
         unpublish()
-        let name = "Траты — " + (Host.current().localizedName ?? "Mac")
+        let name = L10n.text("bonjour.serviceName", Host.current().localizedName ?? "Mac")
         let service = NetService(domain: "local.", type: Self.serviceType, name: name, port: Int32(port))
         service.publish()
         published = service

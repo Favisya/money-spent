@@ -1,0 +1,90 @@
+/* Texts of the native wrapper. Every key must also be in en.lproj/Localizable.strings. */
+
+"app.name" = "Траты";
+
+/* Menus */
+"menu.about" = "О программе «Траты»";
+"menu.allowConnections" = "Разрешить подключение";
+"menu.sharing" = "Общий доступ…";
+"menu.connect" = "Подключиться к другому Mac…";
+"menu.disconnect" = "Отключиться от другого Mac…";
+"menu.openDataFolder" = "Открыть папку с данными";
+"menu.hide" = "Скрыть «Траты»";
+"menu.quit" = "Завершить «Траты»";
+"menu.edit" = "Правка";
+"menu.undo" = "Отменить";
+"menu.redo" = "Повторить";
+"menu.cut" = "Вырезать";
+"menu.copy" = "Скопировать";
+"menu.paste" = "Вставить";
+"menu.selectAll" = "Выбрать все";
+"menu.view" = "Вид";
+"menu.overview" = "Обзор";
+"menu.analytics" = "Аналитика";
+"menu.import" = "Импорт";
+"menu.back" = "Назад";
+"menu.forward" = "Вперёд";
+"menu.reload" = "Обновить";
+"menu.zoomIn" = "Крупнее";
+"menu.zoomOut" = "Мельче";
+"menu.actualSize" = "Обычный размер";
+"menu.window" = "Окно";
+"menu.minimize" = "Свернуть";
+"menu.close" = "Закрыть";
+
+/* Alerts */
+"button.yes" = "Да";
+"button.cancel" = "Отмена";
+"connect.title" = "Подключиться к другому Mac?";
+"connect.detail" = "Учёт на этом Mac остановится, но данные останутся. Вернуться можно в том же меню.";
+"disconnect.title" = "Отключиться от этого Mac?";
+"disconnect.detail" = "Можно будет выбрать другой Mac или вести учёт здесь.";
+"alert.sharingFailed" = "Не удалось переключить доступ";
+"alert.saveFailed" = "Не удалось сохранить файл";
+
+/* Startup status */
+"status.preparingDatabase" = "Готовлю базу данных…";
+"status.updatingApp" = "Обновляю приложение…";
+"status.starting" = "Запускаю…";
+"status.stopping" = "Останавливаю…";
+
+/* Startup steps and their errors: "<step>: <detail>" */
+"step.createDatabase" = "Создание базы";
+"step.startDatabase" = "Запуск базы";
+"step.database" = "База";
+"step.migrations" = "Миграции";
+"step.referenceData" = "Справочники";
+"step.cache" = "Кеш";
+"step.webServer" = "Веб-сервер";
+"step.port" = "Порт";
+"error.serverStopped" = "остановился при запуске, подробности в logs/server.log";
+"error.serverTimeout" = "не ответил за 15 секунд, подробности в logs/server.log";
+"error.exitCode" = "код %d";
+"error.noSocket" = "нет сокета";
+"error.portBind" = "не удалось занять порт";
+"error.portLookup" = "не удалось узнать порт";
+
+/* Startup error page */
+"error.title" = "Не удалось запустить";
+"error.logs" = "Журналы:";
+"error.hint" = "Закрой приложение и открой снова. Если повторится — пришли журналы.";
+
+/* Chooser page */
+"chooser.title" = "Как вести учёт?";
+"chooser.local" = "Здесь, на этом Mac";
+"chooser.orConnect" = "или подключиться к другому Mac";
+"chooser.searching" = "Ищу Mac с включённым доступом в этой сети…";
+"chooser.addressPlaceholder" = "адрес, например http://dima-mac.local:8765";
+"chooser.connect" = "Подключиться";
+"chooser.hint" = "На том Mac: Траты → Разрешить подключение, затем Доступ → «Показать код».";
+"chooser.badAddress" = "Не понял адрес. Пример: http://dima-mac.local:8765";
+
+/* Offline page; %@ is the host name of the other Mac */
+"offline.title" = "%@ не отвечает";
+"offline.thatMac" = "Тот Mac";
+"offline.hint" = "Проверь, что там открыты Траты и включено «Разрешить подключение», и что вы в одной сети.";
+"offline.retry" = "Попробовать снова";
+"offline.choose" = "Выбрать другой Mac";
+
+/* Name other Macs see in the chooser; %@ is this Mac's name */
+"bonjour.serviceName" = "Траты — %@";

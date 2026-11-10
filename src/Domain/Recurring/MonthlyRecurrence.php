@@ -32,6 +32,16 @@ final readonly class MonthlyRecurrence
     }
 
     /**
+     * The first month to book from $today on: this month while its day is still ahead (or today), else the next one.
+     */
+    public function firstMonth(DateTimeImmutable $today): DateTimeImmutable
+    {
+        $month = $today->setTime(0, 0)->modify('first day of this month');
+
+        return $this->dateIn($month) >= $today->setTime(0, 0) ? $month : $month->modify('first day of next month');
+    }
+
+    /**
      * Occurrences from $nextMonth on that are already due by $today, oldest first, at most $limit.
      *
      * @return list<DateTimeImmutable>

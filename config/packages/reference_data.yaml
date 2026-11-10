@@ -5,43 +5,49 @@ parameters:
     app.reference.currencies:
         - code: 'AMD'
           exponent: 0
-          aliases: ['amd', 'драм', 'драма', 'драмов', 'драмм', 'драмма', 'драммов', 'др', '֏']
+          aliases: ['amd', 'драм', 'драма', 'драмов', 'драмм', 'драмма', 'драммов', 'др', '֏', 'dram', 'drams']
         - code: 'RUB'
           exponent: 2
-          aliases: ['rub', 'руб', 'рублей', 'рубля', 'р', '₽']
+          aliases: ['rub', 'руб', 'рублей', 'рубля', 'р', '₽', 'ruble', 'rubles', 'rouble', 'roubles']
         - code: 'EUR'
           exponent: 2
-          aliases: ['eur', 'евро', '€']
+          aliases: ['eur', 'евро', '€', 'euro', 'euros']
         - code: 'USD'
           exponent: 2
-          aliases: ['usd', 'доллар', 'доллара', 'долларов', 'долл', 'бакс', 'бакса', 'баксов', '$']
+          aliases: ['usd', 'доллар', 'доллара', 'долларов', 'долл', 'бакс', 'бакса', 'баксов', '$', 'dollar', 'dollars',
+                    'bucks']
 
     app.reference.categories:
         - code: 'groceries'
           title: 'Продукты'
-          keywords: ['продукт', 'магаз', 'ашан', 'супермаркет', 'сас', 'sas', 'карфур', 'ереван']
+          keywords: ['продукт', 'магаз', 'ашан', 'супермаркет', 'сас', 'sas', 'карфур', 'ереван', 'grocer',
+                     'supermarket']
         - code: 'delivery'
           title: 'Доставка'
-          keywords: ['доставк', 'глово', 'glovo', 'wolt', 'яндекс', 'menu.am']
+          keywords: ['доставк', 'глово', 'glovo', 'wolt', 'яндекс', 'menu.am', 'deliver']
         - code: 'utilities'
           title: 'Коммуналка'
-          keywords: ['коммуналк', 'комуналк', 'свет', 'электричеств', 'вода', 'интернет', 'квартплат']
+          keywords: ['коммуналк', 'комуналк', 'свет', 'электричеств', 'вода', 'интернет', 'квартплат', 'utilit',
+                     'electric']
         - code: 'gas'
           title: 'Бензин'
-          keywords: ['бензин', 'заправк', 'топлив', 'газ']
+          keywords: ['бензин', 'заправк', 'топлив', 'газ', 'gas', 'gasoline', 'petrol', 'fuel']
         - code: 'subscriptions'
           title: 'Подписки'
-          keywords: ['подписк', 'чатгпт', 'chatgpt', 'gpt', 'netflix', 'spotify', 'youtube', 'icloud']
+          keywords: ['подписк', 'чатгпт', 'chatgpt', 'gpt', 'netflix', 'spotify', 'youtube', 'icloud',
+                     'subscript']
         - code: 'transfers'
           title: 'Переводы'
-          keywords: ['переводы']
+          keywords: ['переводы', 'transfers']
         - code: 'other'
           title: 'Прочее'
-          keywords: ['прочее', 'другое']
+          keywords: ['прочее', 'другое', 'other', 'misc']
 
-    # A line with one of these words is a money transfer, not an expense ("алиса скинула 5000").
+    # A line with one of these words is a money transfer, not an expense ("алиса скинула 5000", "alice sent 5000").
+    # Russian and English at once: the entry line understands both, whatever the interface language.
     app.transfer_verbs: ['скинул', 'скинула', 'скинули', 'кинул', 'кинула', 'перекинул', 'перекинула', 'перевел',
-                         'перевела', 'перевели', 'перевод', 'отдал', 'отдала', 'вернул', 'вернула', 'вернули']
+                         'перевела', 'перевели', 'перевод', 'отдал', 'отдала', 'вернул', 'вернула', 'вернули',
+                         'sent', 'transfer', 'transferred', 'transfered', 'gave', 'repaid']
 
     app.split_aliases:
         'лично': 'payer_only'
@@ -49,3 +55,9 @@ parameters:
         'себе': 'payer_only'
         'ей': 'other_only'
         'ему': 'other_only'
+        'personal': 'payer_only'
+        'personally': 'payer_only'
+        'mine': 'payer_only'
+        'myself': 'payer_only'
+        'her': 'other_only'
+        'him': 'other_only'

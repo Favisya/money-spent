@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace App\Web\Controller;
 
 use App\Application\Clock\LocalCalendar;
+use App\Application\Expense\JointExpenseRecorder;
 use App\Application\Parsing\ParseErrorMessages;
 use App\Application\Rates\PendingRateBackfill;
+use App\Application\Recurring\RecurringChange;
+use App\Application\Recurring\RecurringEditor;
 use App\Application\Recurring\RecurringExpenses;
 use App\Application\UserError;
 use App\Domain\Parsing\ExpenseParseException;
 use App\Domain\Split\SplitType;
+use App\Infrastructure\Persistence\CategoryRepository;
 use App\Infrastructure\Persistence\ParticipantRepository;
 use App\Infrastructure\Persistence\RecurringExpenseRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -27,10 +31,13 @@ final class RecurringController extends AbstractController
         'resumed' => 'Снова записывается каждый месяц.',
         'deleted' => 'Удалено. Уже записанные траты остались.',
         'refused' => 'Не получилось: трата удалена или уже повторяется каждый месяц.',
+        'saved'   => 'Сохранено. Уже записанные траты не изменились.',
     ];
 
     public function __construct(
         private readonly RecurringExpenses $service,
+        private readonly RecurringEditor $editor,
+        private readonly CategoryRepository $categories,
         private readonly RecurringExpenseRepository $recurring,
         private readonly ParticipantRepository $participants,
         private readonly ParseErrorMessages $parseErrors,
@@ -54,19 +61,42 @@ final class RecurringController extends AbstractController
         $text = mb_substr($request->request->getString('text'), 0, self::TEXT_LIMIT);
 
         try {
+            $payer     = $request->request->getString('payer');
             $recurring = $this->service->create(
-                $request->request->getInt('payer'),
+                $payer === JointExpenseRecorder::BOTH ? null : (int) filter_var($payer, FILTER_VALIDATE_INT),
                 $text,
                 SplitType::tryFrom($request->request->getString('whose')) ?? SplitType::Equal,
                 $request->request->getInt('day'),
             );
         } catch (ExpenseParseException $exception) {
-            return $this->failed($request, $text, $this->parseErrors->message($exception));
+            return $this->failed($request, $text, $this->parseErrors->error($exception));
         } catch (UserError $exception) {
-            return $this->failed($request, $text, $exception->getMessage());
+            return $this->failed($request, $text, $exception);
         }
 
         return $this->booked($recurring->id, 'added');
+    }
+
+    #[Route('/recurring/{id}', name: 'web_recurring_save', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function save(Request $request, int $id): Response
+    {
+        $input = $request->request;
+
+        try {
+            $this->editor->update($id, new RecurringChange(
+                $input->getInt('day'),
+                mb_substr($input->getString('amount'), 0, 40),
+                mb_substr($input->getString('currency'), 0, 3),
+                mb_substr($input->getString('payer'), 0, 20),
+                $input->getInt('category'),
+                mb_substr($input->getString('split'), 0, 20),
+                mb_substr($input->getString('note'), 0, 1000),
+            ));
+        } catch (UserError $error) {
+            return $this->page($request, ['editError' => [$id => $error]], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->redirectToRoute('web_recurring', ['ok' => 'saved', 'id' => $id]);
     }
 
     #[Route(
@@ -134,12 +164,12 @@ final class RecurringController extends AbstractController
         return $this->redirectToRoute('web_recurring', ['ok' => $notice, 'id' => $id]);
     }
 
-    private function failed(Request $request, string $text, string $error): Response
+    private function failed(Request $request, string $text, UserError $error): Response
     {
         return $this->page($request, [
             'error'   => $error,
             'text'    => $text,
-            'payerId' => $request->request->getInt('payer'),
+            'payerId' => $request->request->getString('payer'),
             'whose'   => $request->request->getString('whose'),
             'day'     => $request->request->getInt('day'),
         ], Response::HTTP_UNPROCESSABLE_ENTITY);
@@ -153,7 +183,9 @@ final class RecurringController extends AbstractController
         return $this->render('web/recurring.html.twig', [
             'items'        => $this->recurring->findAll(),
             'participants' => $this->participants->all(),
-            'payerId'      => $request->cookies->getInt('payer'),
+            'categories'   => $this->categories->findActive(),
+            'payerId'      => $request->cookies->getString('payer'),
+            'editError'    => [],
             'day'          => (int) $this->calendar->today()->format('j'),
             'whose'        => 'equal',
             'text'         => '',

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console;
 
+use App\Bot\Command\CommandMenu;
 use App\Bot\Telegram\TelegramAdminClient;
 use App\Bot\Telegram\TelegramApiException;
 use SensitiveParameter;
@@ -13,13 +14,17 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-#[AsCommand(name: 'app:telegram:set-webhook', description: 'Register the public HTTPS webhook URL in Telegram')]
+#[AsCommand(
+    name: 'app:telegram:set-webhook',
+    description: 'Register the public HTTPS webhook URL and the command menu in Telegram',
+)]
 final class SetWebhookCommand extends Command
 {
     public function __construct(
         private readonly TelegramAdminClient $telegram,
         #[SensitiveParameter]
         private readonly string $webhookSecret,
+        private readonly CommandMenu $menu,
     ) {
         parent::__construct();
     }
@@ -47,13 +52,14 @@ final class SetWebhookCommand extends Command
 
         try {
             $this->telegram->setWebhook(rtrim($baseUrl, '/') . '/telegram/webhook', $this->webhookSecret);
+            $this->menu->publish();
         } catch (TelegramApiException $exception) {
             $output->writeln(sprintf('<error>%s</error>', $exception->getMessage()));
 
             return Command::FAILURE;
         }
 
-        $output->writeln('Webhook registered.');
+        $output->writeln('Webhook and command menu registered.');
 
         return Command::SUCCESS;
     }

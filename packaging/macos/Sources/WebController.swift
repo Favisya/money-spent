@@ -42,20 +42,21 @@ final class WebController: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownl
     /// First launch without local data: keep the books on this Mac or join the one running on another Mac.
     func showChooser(found: [Bonjour.Found], note: String? = nil) {
         let list = found.isEmpty
-            ? "<p class=\"muted\">Ищу Mac с включённым доступом в этой сети…</p>"
+            ? "<p class=\"muted\">\(Self.text("chooser.searching"))</p>"
             : found.map { item in
                 "<button class=\"choice\" data-url=\"\(Self.escape(item.url.absoluteString))\">\(Self.escape(item.name))"
                     + "<span>\(Self.escape(item.url.host ?? ""))</span></button>"
             }.joined()
         let body = """
-        <h1>Как вести учёт?</h1>
+        <h1>\(Self.text("chooser.title"))</h1>
         \(note.map { "<p class=\"warn\">\(Self.escape($0))</p>" } ?? "")
-        <button class="primary" data-action="local">Здесь, на этом Mac</button>
-        <h2>или подключиться к другому Mac</h2>
+        <button class="primary" data-action="local">\(Self.text("chooser.local"))</button>
+        <h2>\(Self.text("chooser.orConnect"))</h2>
         <div class="list">\(list)</div>
-        <form id="manual"><input id="address" placeholder="адрес, например http://dima-mac.local:8765" autocomplete="off">
-        <button type="submit">Подключиться</button></form>
-        <p class="muted">На том Mac: Траты → Разрешить подключение, затем Доступ → «Показать код».</p>
+        <form id="manual">
+        <input id="address" placeholder="\(Self.text("chooser.addressPlaceholder"))" autocomplete="off">
+        <button type="submit">\(Self.text("chooser.connect"))</button></form>
+        <p class="muted">\(Self.text("chooser.hint"))</p>
         <script>
         const post = (m) => window.webkit.messageHandlers.app.postMessage(m);
         document.querySelectorAll('[data-action]').forEach((b) => b.onclick = () => post({action: b.dataset.action}));
@@ -71,10 +72,10 @@ final class WebController: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownl
 
     func showOffline(_ url: URL) {
         let body = """
-        <h1>\(Self.escape(url.host ?? "Тот Mac")) не отвечает</h1>
-        <p class="muted">Проверь, что там открыты Траты и включено «Разрешить подключение», и что вы в одной сети.</p>
-        <button class="primary" data-action="retry">Попробовать снова</button>
-        <button data-action="choose">Выбрать другой Mac</button>
+        <h1>\(Self.text("offline.title", url.host ?? L10n.text("offline.thatMac")))</h1>
+        <p class="muted">\(Self.text("offline.hint"))</p>
+        <button class="primary" data-action="retry">\(Self.text("offline.retry"))</button>
+        <button data-action="choose">\(Self.text("offline.choose"))</button>
         <script>
         document.querySelectorAll('[data-action]').forEach((b) =>
             b.onclick = () => window.webkit.messageHandlers.app.postMessage({action: b.dataset.action}));
@@ -110,10 +111,10 @@ final class WebController: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownl
 
     func showError(_ text: String, logs: String) {
         let body = """
-        <h1>Не удалось запустить</h1>
+        <h1>\(Self.text("error.title"))</h1>
         <p>\(Self.escape(text))</p>
-        <p class="muted">Журналы: <code>\(Self.escape(logs))</code></p>
-        <p class="muted">Закрой приложение и открой снова. Если повторится — пришли журналы.</p>
+        <p class="muted">\(Self.text("error.logs")) <code>\(Self.escape(logs))</code></p>
+        <p class="muted">\(Self.text("error.hint"))</p>
         """
         webView.loadHTMLString(Self.page(body: body), baseURL: nil)
     }
@@ -199,7 +200,7 @@ final class WebController: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownl
     }
 
     func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
-        alert("Не удалось сохранить файл", error.localizedDescription)
+        alert(L10n.text("alert.saveFailed"), error.localizedDescription)
     }
 
     // MARK: - JavaScript dialogs and file inputs
@@ -222,8 +223,8 @@ final class WebController: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownl
     ) {
         let panel = NSAlert()
         panel.messageText = message
-        panel.addButton(withTitle: "Да")
-        panel.addButton(withTitle: "Отмена")
+        panel.addButton(withTitle: L10n.text("button.yes"))
+        panel.addButton(withTitle: L10n.text("button.cancel"))
         completionHandler(panel.runModal() == .alertFirstButtonReturn)
     }
 
@@ -274,10 +275,15 @@ final class WebController: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownl
             .replacingOccurrences(of: "\"", with: "&quot;")
     }
 
+    /// A localized text, filled in and escaped for the built-in pages.
+    private static func text(_ key: String, _ arguments: CVarArg...) -> String {
+        escape(arguments.isEmpty ? L10n.text(key) : L10n.text(key, arguments: arguments))
+    }
+
     private static func page(body: String, script: Bool = false) -> String {
         let scripts = script ? "; script-src 'unsafe-inline'" : ""
         return """
-        <!doctype html><html lang="ru"><head><meta charset="utf-8">
+        <!doctype html><html lang="\(L10n.language)"><head><meta charset="utf-8">
         <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'\(scripts)">
         <style>
         :root { color-scheme: light dark; --ink: #1c1c1f; --muted: #63636b; --accent: #0f766e; --bg: #f6f6f4; }

@@ -1,11 +1,11 @@
 {# Signature element: the balance between the two of us as a single track. #}
 {% if line %}
-    <section class="debt" aria-label="Баланс">
+    <section class="debt" aria-label="{{ 'Баланс'|trans }}">
         <p class="debt__sentence">
             {% if line.settled %}
-                Никто никому не должен
+                {{ 'Никто никому не должен'|trans }}
             {% else %}
-                <span class="pname">{{ avatar(line.debtor.id, line.debtor.name) }}<strong>{{ line.debtor.name }}</strong></span> должен(на)
+                <span class="pname">{{ avatar(line.debtor.id, line.debtor.name) }}<strong>{{ line.debtor.name }}</strong></span> {{ 'должен(на)'|trans }}
                 <span class="pname">{{ avatar(line.creditor.id, line.creditor.name) }}<strong>{{ line.creditor.name }}</strong></span>
                 <span class="num">{{ line.amount|shown }}</span>
             {% endif %}
@@ -24,7 +24,7 @@
             <span class="debt__name pname">{{ line.right.name }}{{ avatar(line.right.id, line.right.name) }}</span>
         </div>
         {% if pending > 0 %}
-            <p class="hint">Записей без курса пока не учтено: {{ pending }}.</p>
+            <p class="hint">{{ 'Записей без курса пока не учтено: %count%.'|trans({'%count%': pending}) }}</p>
         {% endif %}
     </section>
 {% endif %}

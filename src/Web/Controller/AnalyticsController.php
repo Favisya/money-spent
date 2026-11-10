@@ -42,7 +42,7 @@ final class AnalyticsController extends AbstractController
             $period = $this->period($request);
         } catch (UserError $exception) {
             $period = $this->lastMonths(self::DEFAULT_MONTHS);
-            $error  = $exception->getMessage();
+            $error  = $exception;
         }
 
         $who = $request->query->getString('who');
