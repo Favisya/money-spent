@@ -11,6 +11,7 @@ use App\Application\Reference\CurrencyCatalog;
 use App\Application\Report\CategoryTotal;
 use App\Domain\Balance\LedgerExpense;
 use App\Domain\Money\Currency;
+use App\Domain\Money\ExchangeRate;
 use App\Domain\Money\Money;
 use App\Domain\Split\SplitType;
 use DateTimeImmutable;
@@ -274,6 +275,43 @@ final readonly class ExpenseRepository
             ),
             $this->inPeriod($query, $from, $to)->executeQuery()->fetchAllAssociative(),
         );
+    }
+
+    /**
+     * Day, amount and rate change together: the amount in the base currency follows them.
+     */
+    public function updateMoney(int $id, DateTimeImmutable $spentAt, Money $amount, ?ExchangeRate $rate): void
+    {
+        $this->connection->createQueryBuilder()
+            ->update('expense')
+            ->set('spent_at', ':spent_at')
+            ->set('amount_minor', ':amount_minor')
+            ->set('currency', ':currency')
+            ->set('rate_to_base', ':rate_to_base')
+            ->set('amount_base_minor', ':amount_base_minor')
+            ->where('id = :id')
+            ->andWhere('deleted_at IS NULL')
+            ->setParameter('spent_at', $spentAt->format('Y-m-d'))
+            ->setParameter('amount_minor', $amount->minor, ParameterType::INTEGER)
+            ->setParameter('currency', $amount->currency->code)
+            ->setParameter('rate_to_base', $rate?->rate)
+            ->setParameter('amount_base_minor', $rate?->convert($amount)->minor)
+            ->setParameter('id', $id, ParameterType::INTEGER)
+            ->executeStatement();
+    }
+
+    public function updatePayer(int $id, int $payerId, SplitType $split): void
+    {
+        $this->connection->createQueryBuilder()
+            ->update('expense')
+            ->set('payer_id', ':payer_id')
+            ->set('split', ':split')
+            ->where('id = :id')
+            ->andWhere('deleted_at IS NULL')
+            ->setParameter('payer_id', $payerId, ParameterType::INTEGER)
+            ->setParameter('split', $split->value)
+            ->setParameter('id', $id, ParameterType::INTEGER)
+            ->executeStatement();
     }
 
     public function updateSplit(int $id, SplitType $split): void

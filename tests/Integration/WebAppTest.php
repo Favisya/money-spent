@@ -96,6 +96,56 @@ final class WebAppTest extends KernelTestCase
         self::assertNotNull($this->db->fetchOne('SELECT deleted_at FROM expense'));
     }
 
+    public function testExpenseRowIsEditedInPlace(): void
+    {
+        $this->people();
+        $this->rate('2026-11-09', 'EUR', '403.36');
+        $this->rate('2026-10-09', 'EUR', '410');
+        $this->post('/expenses', ['text' => '17000 продукты', 'payer' => $this->anna]);
+
+        $amount = $this->post('/expenses/1/amount', ['amount' => '18,5', 'currency' => 'EUR', 'back' => '2026-11']);
+        self::assertSame('/?m=2026-11&ok=amount&id=1', $amount->headers->get('Location'));
+        self::assertSame(
+            ['amount_minor' => 1850, 'currency' => 'EUR', 'amount_base_minor' => 7462],
+            $this->db->fetchAssociative('SELECT amount_minor, currency, amount_base_minor FROM expense WHERE id = 1'),
+        );
+
+        $date = $this->post('/expenses/1/date', ['date' => '09.10', 'back' => '2026-11']);
+        self::assertSame('/?m=2026-10&ok=date&id=1', $date->headers->get('Location'));
+        self::assertSame(
+            ['spent_at' => '2026-10-09', 'amount_base_minor' => 7585],
+            $this->db->fetchAssociative('SELECT spent_at, amount_base_minor FROM expense WHERE id = 1'),
+        );
+
+        $this->post('/expenses/1/split', ['split' => 'payer_only', 'back' => '2026-10']);
+        $this->post('/expenses/1/payer', ['payer' => $this->boris, 'back' => '2026-10']);
+        self::assertSame(
+            ['payer_id' => $this->boris, 'split' => 'other_only'],
+            $this->db->fetchAssociative('SELECT payer_id, split FROM expense WHERE id = 1'),
+        );
+
+        foreach (
+            [
+                ['/expenses/1/amount', ['amount' => 'сто', 'currency' => 'EUR']],
+                ['/expenses/1/amount', ['amount' => '10', 'currency' => 'XYZ']],
+                ['/expenses/1/date', ['date' => '31.02']],
+                ['/expenses/1/payer', ['payer' => 999]],
+            ] as [$uri, $data]
+        ) {
+            $refused = $this->post($uri, [...$data, 'back' => '2026-10']);
+            self::assertSame(422, $refused->getStatusCode(), $uri);
+            self::assertStringContainsString('Не сохранено:', (string) $refused->getContent());
+        }
+
+        self::assertSame(1, (int) $this->db->fetchOne('SELECT COUNT(*) FROM expense'));
+        self::assertSame(1850, (int) $this->db->fetchOne('SELECT amount_minor FROM expense'));
+
+        $page = (string) $this->get('/?m=2026-10')->getContent();
+        self::assertStringContainsString('name="payer" aria-label="Кто платил"', $page);
+        self::assertStringContainsString('<option value="EUR" selected>EUR</option>', $page);
+        self::assertStringContainsString('value="09.10"', $page);
+    }
+
     public function testInvalidExpenseIsExplained(): void
     {
         $this->people();

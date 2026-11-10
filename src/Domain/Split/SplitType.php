@@ -25,4 +25,16 @@ enum SplitType: string
             self::OtherOnly => count($others) === 1 ? $others[0] : null,
         };
     }
+
+    /**
+     * The split that keeps the expense with the same owner when somebody else pays for it.
+     */
+    public static function forOwner(?int $ownerId, int $payerId): self
+    {
+        return match ($ownerId) {
+            null     => self::Equal,
+            $payerId => self::PayerOnly,
+            default  => self::OtherOnly,
+        };
+    }
 }

@@ -30,4 +30,12 @@ final class SplitTypeTest extends TestCase
     {
         self::assertSame($expected, $split->ownerId($payer, $participants));
     }
+
+    public function testForOwnerKeepsTheOwnerWhenThePayerChanges(): void
+    {
+        self::assertSame(SplitType::Equal, SplitType::forOwner(null, 2));
+        self::assertSame(SplitType::PayerOnly, SplitType::forOwner(2, 2));
+        self::assertSame(SplitType::OtherOnly, SplitType::forOwner(1, 2));
+        self::assertSame(1, SplitType::forOwner(1, 2)->ownerId(2, [1, 2]));
+    }
 }

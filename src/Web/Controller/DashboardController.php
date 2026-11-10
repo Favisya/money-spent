@@ -40,6 +40,9 @@ final class DashboardController extends AbstractController
         'category' => 'Категория изменена.',
         'note'     => 'Заметка сохранена.',
         'split'    => 'Отмечено, чья трата.',
+        'date'     => 'Дата изменена.',
+        'amount'   => 'Сумма изменена, пересчёт по курсу на дату траты.',
+        'payer'    => 'Изменено, кто платил.',
         'settled'  => 'Перевод записан.',
         'sent'     => 'Перевод другому человеку записан как личная трата отправителя, в категорию «Переводы».',
     ];
@@ -193,6 +196,46 @@ final class DashboardController extends AbstractController
         return $this->back($request, 'split', $id);
     }
 
+    #[Route('/expenses/{id}/date', name: 'web_expense_date', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function changeDate(Request $request, int $id): Response
+    {
+        try {
+            $expense = $this->editor->changeDate($id, mb_substr($request->request->getString('date'), 0, 20));
+        } catch (UserError $error) {
+            return $this->failedEdit($request, $error);
+        }
+
+        return $this->back($request, 'date', $id, MonthPeriod::containing($expense->spentAt));
+    }
+
+    #[Route('/expenses/{id}/amount', name: 'web_expense_amount', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function changeAmount(Request $request, int $id): Response
+    {
+        try {
+            $this->editor->changeAmount(
+                $id,
+                mb_substr($request->request->getString('amount'), 0, 40),
+                mb_substr($request->request->getString('currency'), 0, 3),
+            );
+        } catch (UserError $error) {
+            return $this->failedEdit($request, $error);
+        }
+
+        return $this->back($request, 'amount', $id);
+    }
+
+    #[Route('/expenses/{id}/payer', name: 'web_expense_payer', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function changePayer(Request $request, int $id): Response
+    {
+        try {
+            $this->editor->changePayer($id, $request->request->getInt('payer'));
+        } catch (UserError $error) {
+            return $this->failedEdit($request, $error);
+        }
+
+        return $this->back($request, 'payer', $id);
+    }
+
     #[Route('/expenses/{id}/delete', name: 'web_expense_delete', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function delete(Request $request, int $id): Response
     {
@@ -275,6 +318,13 @@ final class DashboardController extends AbstractController
             'kind'         => $request->request->getString('kind', 'expense'),
             'transferTo'   => $request->request->getString('to'),
             'transferName' => mb_substr($request->request->getString('to_name'), 0, 64),
+        ], Response::HTTP_UNPROCESSABLE_ENTITY);
+    }
+
+    private function failedEdit(Request $request, UserError $error): Response
+    {
+        return $this->page($request, $this->returnPeriod($request), [
+            'editError' => $error->getMessage(),
         ], Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 

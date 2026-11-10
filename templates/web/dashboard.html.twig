@@ -21,6 +21,7 @@
     </div>
 
     {% if notice is defined and notice %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
+    {% if editError is defined and editError %}<p class="error" role="alert">Не сохранено: {{ editError }}</p>{% endif %}
 
     {{ include('web/_debt_line.html.twig', {line: d.debtLine, pending: d.balance.pendingCount}) }}
 
@@ -110,7 +111,15 @@
                         <tbody>
                         {% for e in d.expenses %}
                             <tr id="e{{ e.id }}" class="{{ e.id == (highlight ?? 0) ? 'is-new' }}">
-                                <td class="num muted">{{ e.spentAt|date('d.m') }}</td>
+                                <td class="num muted">
+                                    <form method="post" action="{{ path('web_expense_date', {id: e.id}) }}" class="inline">
+                                        <input type="hidden" name="back" value="{{ d.period.key }}">
+                                        {% if d.filter %}<input type="hidden" name="who" value="{{ d.filter.key }}">{% endif %}
+                                        <input class="cell-edit cell-edit--date num" name="date" value="{{ e.spentAt|date('d.m') }}"
+                                               maxlength="10" inputmode="numeric" title="Дата: 08.11 или 08.11.2026"
+                                               aria-label="Дата траты" onchange="this.form.requestSubmit()">
+                                    </form>
+                                </td>
                                 <td>
                                     <form method="post" action="{{ path('web_expense_category', {id: e.id}) }}" class="inline">
                                         <input type="hidden" name="back" value="{{ d.period.key }}">
@@ -131,7 +140,23 @@
                                                placeholder="+ заметка" aria-label="Заметка к трате"
                                                onchange="this.form.requestSubmit()">
                                     </form>                                </td>
-                                <td><span class="pname">{{ avatar(e.payerId, e.payerName) }}{{ e.payerName }}</span></td>
+                                <td>
+                                    {% if d.participants|length > 1 %}
+                                        <form method="post" action="{{ path('web_expense_payer', {id: e.id}) }}" class="inline pname">
+                                            <input type="hidden" name="back" value="{{ d.period.key }}">
+                                            {% if d.filter %}<input type="hidden" name="who" value="{{ d.filter.key }}">{% endif %}
+                                            {{ avatar(e.payerId, e.payerName) }}
+                                            <select class="select-bare" name="payer" aria-label="Кто платил" onchange="this.form.requestSubmit()">
+                                                {% for p in d.participants %}
+                                                    <option value="{{ p.id }}" {{ p.id == e.payerId ? 'selected' }}>{{ p.name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            <noscript><button class="link" type="submit">ок</button></noscript>
+                                        </form>
+                                    {% else %}
+                                        <span class="pname">{{ avatar(e.payerId, e.payerName) }}{{ e.payerName }}</span>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     {% set owner = d.ownerOf(e) %}
                                     <form method="post" action="{{ path('web_expense_split', {id: e.id}) }}" class="inline owner-tag">
@@ -154,7 +179,20 @@
                                         <noscript><button class="link" type="submit">ок</button></noscript>
                                     </form>
                                 </td>
-                                <td class="r num">{{ e.amount|money }}</td>
+                                <td class="r num">
+                                    <form method="post" action="{{ path('web_expense_amount', {id: e.id}) }}" class="inline amount-edit">
+                                        <input type="hidden" name="back" value="{{ d.period.key }}">
+                                        {% if d.filter %}<input type="hidden" name="who" value="{{ d.filter.key }}">{% endif %}
+                                        <input class="cell-edit cell-edit--amount num" name="amount" value="{{ e.amount|money_number }}"
+                                               maxlength="20" inputmode="decimal" aria-label="Сумма" onchange="this.form.requestSubmit()">
+                                        <select class="select-bare amount-edit__currency" name="currency" aria-label="Валюта суммы" onchange="this.form.requestSubmit()">
+                                            {% for c in display_choices() %}
+                                                <option value="{{ c.code }}" {{ c.code == e.amount.currency.code ? 'selected' }}>{{ c.code }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <noscript><button class="link" type="submit">ок</button></noscript>
+                                    </form>
+                                </td>
                                 <td class="r num">
                                     {% if e.amountBase is null %}
                                         <span class="warn" title="Курса на эту дату пока нет">нет курса</span>
