@@ -13,6 +13,10 @@ framework:
                 base_uri: 'https://api.cba.am'
                 timeout: 15
                 max_duration: 30
+            cbr.http_client:
+                base_uri: 'https://www.cbr.ru'
+                timeout: 15
+                max_duration: 30
 
 when@test:
     framework:

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Web\Controller;
 
+use App\Application\Rates\RateSourceChoice;
 use App\Web\Currency\DisplayCurrency;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Cookie;
@@ -29,6 +30,17 @@ final class DisplayCurrencyController extends AbstractController
         $back = $request->request->getString('back');
 
         $response = new RedirectResponse(preg_match(self::LOCAL_PATH, $back) === 1 ? $back : '/');
+
+        $source = RateSourceChoice::tryFrom($request->request->getString('source'));
+
+        if ($source !== null) {
+            $response->headers->setCookie(Cookie::create(
+                DisplayCurrency::SOURCE_COOKIE,
+                $source->value,
+                time() + self::COOKIE_TTL,
+                sameSite: Cookie::SAMESITE_STRICT,
+            ));
+        }
 
         if ($this->display->isChoice($code)) {
             $response->headers->setCookie(Cookie::create(

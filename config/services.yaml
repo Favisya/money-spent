@@ -34,6 +34,14 @@ services:
         arguments:
             $httpClient: '@cba.http_client'
 
+    App\Infrastructure\Rates\CbrRateSource:
+        arguments:
+            $httpClient: '@cbr.http_client'
+
+    App\Application\Rates\MarketRates:
+        arguments:
+            $cbr: '@App\Infrastructure\Rates\CbrRateSource'
+
     App\Bot\AccessPolicy:
         arguments:
             $allowedTelegramIds: '%env(csv:ALLOWED_TELEGRAM_IDS)%'

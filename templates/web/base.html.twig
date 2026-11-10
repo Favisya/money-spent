@@ -29,6 +29,31 @@
             {% endfor %}
         </form>
     </div>
+    {% set quotes = rate_quotes() %}
+    <div class="ratesbar">
+        <div class="wrap ratesbar__inner">
+            <form method="post" action="{{ path('web_display_currency') }}" class="ratesbar__source">
+                <input type="hidden" name="back" value="{{ app.request.requestUri }}">
+                <label class="sr" for="rate-source">Источник курса</label>
+                <select id="rate-source" class="select-bare" name="source" onchange="this.form.requestSubmit()">
+                    {% for s in rate_sources() %}
+                        <option value="{{ s.value }}" {{ s == rate_source() ? 'selected' }}>Курс {{ s.label }}</option>
+                    {% endfor %}
+                </select>
+                <noscript><button class="link" type="submit">ок</button></noscript>
+            </form>
+            {% if quotes is empty %}
+                <span class="muted">курсов пока нет — подтянутся, когда будет интернет</span>
+            {% else %}
+                <span class="muted num">{{ (quotes|first).date|date('d.m') }}</span>
+                <ul class="ratesbar__list">
+                    {% for q in quotes %}
+                        <li class="num"><span class="muted">{{ q.nominal }} {{ q.currency }} =</span> {{ q.value|rate_value }} {{ q.displayCurrency }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+    </div>
 </header>
 <main class="wrap">
     {% block body %}{% endblock %}

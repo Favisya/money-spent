@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Web\Currency;
 
 use App\Application\Clock\LocalCalendar;
+use App\Application\Rates\MarketRates;
+use App\Application\Rates\RateSourceChoice;
 use App\Application\Reference\CurrencyCatalog;
 use App\Domain\Money\Currency;
 use App\Domain\Money\ExchangeRate;
-use App\Domain\Money\ExchangeRateProvider;
 use App\Domain\Money\Money;
-use App\Domain\Money\RateNotFoundException;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Contracts\Service\ResetInterface;
 
@@ -20,7 +20,11 @@ use Symfony\Contracts\Service\ResetInterface;
  */
 final class DisplayCurrency implements ResetInterface
 {
-    public const string COOKIE = 'display_currency';
+    public const string COOKIE        = 'display_currency';
+    public const string SOURCE_COOKIE = 'rate_source';
+
+    private const array NOMINALS = [1, 100, 1_000, 10_000];
+    private const int SCALE      = 8;
 
     /** @var array<string, ExchangeRate|null> */
     private array $rates = [];
@@ -28,7 +32,7 @@ final class DisplayCurrency implements ResetInterface
     public function __construct(
         private readonly RequestStack $requests,
         private readonly CurrencyCatalog $currencies,
-        private readonly ExchangeRateProvider $provider,
+        private readonly MarketRates $market,
         private readonly LocalCalendar $calendar,
     ) {
     }
@@ -109,16 +113,84 @@ final class DisplayCurrency implements ResetInterface
         return $list;
     }
 
+    public function source(): RateSourceChoice
+    {
+        $code = (string) $this->requests->getMainRequest()?->cookies->getString(self::SOURCE_COOKIE);
+
+        return RateSourceChoice::tryFrom($code) ?? RateSourceChoice::Cba;
+    }
+
+    /**
+     * The rate from the chosen source, falling back to the official CBA rate while the source has nothing yet.
+     */
     public function rate(Currency $currency): ?ExchangeRate
     {
         if (!array_key_exists($currency->code, $this->rates)) {
-            try {
-                $this->rates[$currency->code] = $this->provider->rateFor($currency, $this->calendar->today());
-            } catch (RateNotFoundException) {
-                $this->rates[$currency->code] = null;
-            }
+            $today  = $this->calendar->today();
+            $source = $this->source();
+
+            $chosen   = $this->market->rate($source, $currency, $today);
+            $fallback = $chosen === null && $source !== RateSourceChoice::Cba
+                ? $this->market->rate(RateSourceChoice::Cba, $currency, $today)
+                : null;
+
+            $this->rates[$currency->code] = $chosen ?? $fallback;
         }
 
         return $this->rates[$currency->code];
+    }
+
+    /**
+     * Every other currency expressed in the display currency, scaled so the value reads well (100 AMD, not 1 AMD).
+     *
+     * @return list<DisplayQuote>
+     */
+    public function quotes(): array
+    {
+        $shown     = $this->current();
+        $shownRate = $this->rate($shown);
+        $quotes    = [];
+
+        if ($shownRate === null) {
+            return [];
+        }
+
+        foreach ($this->choices() as $currency) {
+            $rate = $currency->equals($shown) ? null : $this->rate($currency);
+
+            if ($rate === null) {
+                continue;
+            }
+
+            $value   = bcdiv($rate->rate, $shownRate->rate, self::SCALE);
+            $nominal = self::NOMINALS[0];
+
+            foreach (self::NOMINALS as $nominal) {
+                if (!self::below(bcmul($value, (string) $nominal, self::SCALE), '1')) {
+                    break;
+                }
+            }
+
+            $scaled = bcmul($value, (string) $nominal, self::SCALE);
+
+            $quotes[] = new DisplayQuote(
+                $currency->code,
+                $nominal,
+                bcadd($scaled, '0.005', 2),
+                $shown->code,
+                max($rate->date, $shownRate->date),
+            );
+        }
+
+        return $quotes;
+    }
+
+    /**
+     * @param numeric-string $value
+     * @param numeric-string $limit
+     */
+    private static function below(string $value, string $limit): bool
+    {
+        return bccomp($value, $limit, self::SCALE) < 0;
     }
 }

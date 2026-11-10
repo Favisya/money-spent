@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Scheduler\Handler;
 
 use App\Application\Clock\LocalCalendar;
+use App\Application\Rates\MarketRates;
 use App\Application\Rates\PendingRateBackfill;
 use App\Application\Rates\RateUpdater;
 use App\Scheduler\Message\FetchExchangeRates;
@@ -19,6 +20,7 @@ final readonly class FetchExchangeRatesHandler
     public function __construct(
         private RateUpdater $updater,
         private PendingRateBackfill $pending,
+        private MarketRates $market,
         private LocalCalendar $calendar,
         private LoggerInterface $logger,
     ) {
@@ -32,6 +34,7 @@ final readonly class FetchExchangeRatesHandler
             'stored'   => array_sum($result->storedByDate),
             'errors'   => count($result->errorsByDate),
             'resolved' => $this->pending->run(),
+            'market'   => $this->market->refresh($this->calendar->today()),
         ]);
     }
 }

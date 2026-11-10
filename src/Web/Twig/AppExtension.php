@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Web\Twig;
 
 use App\Application\Analytics\Owner;
+use App\Application\Rates\RateSourceChoice;
 use App\Application\Reference\CurrencyCatalog;
 use App\Application\Report\MonthPeriod;
 use App\Bot\View\MoneyFormatter;
@@ -13,6 +14,7 @@ use App\Domain\Money\Currency;
 use App\Domain\Money\Money;
 use App\Domain\Split\SplitType;
 use App\Web\Currency\DisplayCurrency;
+use App\Web\Currency\DisplayQuote;
 use App\Web\People\PeoplePalette;
 use Twig\Attribute\AsTwigFilter;
 use Twig\Attribute\AsTwigFunction;
@@ -83,6 +85,39 @@ final readonly class AppExtension
     public function displayCurrency(): Currency
     {
         return $this->display->current();
+    }
+
+    /**
+     * @return list<DisplayQuote>
+     */
+    #[AsTwigFunction('rate_quotes')]
+    public function rateQuotes(): array
+    {
+        return $this->display->quotes();
+    }
+
+    #[AsTwigFunction('rate_source')]
+    public function rateSource(): RateSourceChoice
+    {
+        return $this->display->source();
+    }
+
+    /**
+     * @return list<RateSourceChoice>
+     */
+    #[AsTwigFunction('rate_sources')]
+    public function rateSources(): array
+    {
+        return RateSourceChoice::cases();
+    }
+
+    #[AsTwigFilter('rate_value')]
+    public function rateValue(string $value): string
+    {
+        [$integral, $fraction] = array_pad(explode('.', $value, 2), 2, '');
+        $integral              = (string) preg_replace('/\B(?=(\d{3})+(?!\d))/', "\u{00A0}", $integral);
+
+        return $fraction === '' ? $integral : $integral . ',' . $fraction;
     }
 
     /**

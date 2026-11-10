@@ -12,3 +12,9 @@ services:
 
     App\Tests\Support\StaticRateSource: ~
     App\Application\Rates\RateSource: '@App\Tests\Support\StaticRateSource'
+
+    App\Tests\Support\StaticCbrSource: ~
+
+    App\Application\Rates\MarketRates:
+        arguments:
+            $cbr: '@App\Tests\Support\StaticCbrSource'

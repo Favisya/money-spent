@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration;
 
+use App\Application\Rates\MarketRates;
 use App\Infrastructure\Persistence\ParticipantRepository;
 use App\Tests\Support\StaticRateSource;
+use DateTimeImmutable;
 use Doctrine\DBAL\Connection;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -33,7 +35,7 @@ final class WebAppTest extends KernelTestCase
         $this->db  = self::getContainer()->get(Connection::class);
 
         $this->db->executeStatement(
-            'TRUNCATE telegram_update, settlement, expense, exchange_rate, participant, category '
+            'TRUNCATE telegram_update, settlement, expense, exchange_rate, market_rate, participant, category '
             . 'RESTART IDENTITY CASCADE',
         );
         (new CommandTester((new Application($this->app))->find('app:seed')))->execute([]);
@@ -602,6 +604,46 @@ final class WebAppTest extends KernelTestCase
         self::assertSame(1, (int) $this->db->fetchOne('SELECT COUNT(*) FROM settlement WHERE deleted_at IS NULL'));
         $note = $this->db->fetchOne("SELECT note FROM expense WHERE spent_at = '2026-11-09' AND amount_minor = 11000");
         self::assertSame('свет', $note);
+    }
+
+    public function testRatesBarFollowsDisplayCurrencyAndSource(): void
+    {
+        $this->people();
+        $this->rate('2026-11-09', 'USD', '387.5');
+        $this->rate('2026-11-09', 'RUB', '4.5');
+        $this->rate('2026-11-09', 'EUR', '400');
+
+        $market = self::getContainer()->get(MarketRates::class);
+        self::assertInstanceOf(MarketRates::class, $market);
+        self::assertSame(3, $market->refresh(new DateTimeImmutable('2026-11-10')));
+
+        $amd = $this->plain($this->get('/'));
+        self::assertStringContainsString('1 USD = 387,50 AMD', $amd);
+
+        $rub = $this->plain($this->get('/', [], ['display_currency' => 'RUB']));
+        self::assertStringContainsString('1 USD = 86,11 RUB', $rub);
+        self::assertStringContainsString('100 AMD = 22,22 RUB', $rub);
+
+        $chosen = $this->post('/display-currency', ['source' => 'cbr', 'back' => '/']);
+        self::assertSame(
+            ['rate_source', 'cbr'],
+            [$chosen->headers->getCookies()[0]->getName(), $chosen->headers->getCookies()[0]->getValue()],
+        );
+
+        $cbr = $this->plain($this->get('/', [], ['display_currency' => 'RUB', 'rate_source' => 'cbr']));
+        self::assertStringContainsString('1 USD = 82,75 RUB', $cbr);
+        self::assertStringContainsString('100 AMD = 22,96 RUB', $cbr);
+        self::assertStringContainsString('1 EUR = 92,39 RUB', $cbr);
+
+        $unknown = $this->post('/display-currency', ['source' => 'ecb', 'back' => '/']);
+        self::assertSame([], $unknown->headers->getCookies());
+    }
+
+    private function plain(Response $response): string
+    {
+        $text = (string) preg_replace('/\s+/u', ' ', strip_tags((string) $response->getContent()));
+
+        return str_replace("\u{00A0}", ' ', $text);
     }
 
     private function people(): void

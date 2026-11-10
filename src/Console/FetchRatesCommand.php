@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console;
 
 use App\Application\Clock\LocalCalendar;
+use App\Application\Rates\MarketRates;
 use App\Application\Rates\PendingRateResolver;
 use App\Application\Rates\RateUpdater;
 use DateTimeImmutable;
@@ -23,6 +24,7 @@ final class FetchRatesCommand extends Command
         private readonly RateUpdater $updater,
         private readonly PendingRateResolver $pending,
         private readonly LocalCalendar $calendar,
+        private readonly MarketRates $market,
     ) {
         parent::__construct();
     }
@@ -59,6 +61,7 @@ final class FetchRatesCommand extends Command
         }
 
         $output->writeln(sprintf('Resolved pending entries: %d', $this->pending->resolve()));
+        $output->writeln(sprintf('CBR display rates stored: %d', $this->market->refresh($this->calendar->today())));
 
         return $result->hasErrors() ? Command::FAILURE : Command::SUCCESS;
     }

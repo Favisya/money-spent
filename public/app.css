@@ -666,3 +666,12 @@ h2.pname { margin-bottom: 0.25rem; }
 @media (prefers-reduced-motion: no-preference) {
     .colors__item:hover .avatar { transform: scale(1.08); }
 }
+
+/* rates under the currency switch */
+.ratesbar { border-top: 1px solid var(--line); background: var(--bg); font-size: 0.8rem; }
+.ratesbar__inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.25rem 0.9rem; min-height: 34px; }
+.ratesbar__source .select-bare { font-size: 0.8rem; color: var(--muted); max-width: none; }
+.ratesbar__list { display: flex; flex-wrap: wrap; gap: 0.2rem 1rem; list-style: none; margin: 0; padding: 0; }
+@media (max-width: 640px) {
+    .ratesbar__inner { justify-content: flex-start; }
+}
