@@ -85,7 +85,8 @@ final readonly class ExpenseParser
             $matched = $this->matchCategories($word);
 
             if ($matched !== []) {
-                $categories = array_values(array_unique([...$categories, ...$matched]));
+                $categories   = array_values(array_unique([...$categories, ...$matched]));
+                $noteTokens[] = self::clean($token);
 
                 continue;
             }

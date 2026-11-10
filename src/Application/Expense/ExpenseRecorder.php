@@ -47,13 +47,27 @@ final readonly class ExpenseRecorder
             $this->rates->find($parsed->amount->currency, $parsed->spentAt),
             $category->id,
             $parsed->split,
-            $parsed->note,
+            self::noteBesides($parsed->note, $category),
             $recurringId,
         ));
 
         $view = $this->expenses->findView($id) ?? throw new LogicException('Inserted expense is missing.');
 
         return new RecordedExpense($view, count($candidates) > 1 ? $candidates : []);
+    }
+
+    /**
+     * The words the user wrote stay as a short comment ("свет", "газ"), unless they only repeat the category title.
+     */
+    private static function noteBesides(?string $note, Category $category): ?string
+    {
+        if ($note === null) {
+            return null;
+        }
+
+        $normalize = static fn (string $text): string => str_replace('ё', 'е', mb_strtolower(trim($text)));
+
+        return $normalize($note) === $normalize($category->title) ? null : $note;
     }
 
     private function defaultCategory(): Category

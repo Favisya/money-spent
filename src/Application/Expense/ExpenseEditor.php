@@ -14,6 +14,8 @@ use App\Infrastructure\Persistence\LedgerTable;
 
 final readonly class ExpenseEditor
 {
+    private const int NOTE_LENGTH = 255;
+
     public function __construct(
         private ExpenseRepository $expenses,
         private CategoryRepository $categories,
@@ -44,6 +46,20 @@ final readonly class ExpenseEditor
         }
 
         return $expense;
+    }
+
+    public function changeNote(int $expenseId, string $note): ExpenseView
+    {
+        $this->findActive($expenseId);
+        $note = trim(preg_replace('/\s+/u', ' ', $note) ?? '');
+
+        if (mb_strlen($note) > self::NOTE_LENGTH) {
+            throw new UserError(sprintf('Заметка — до %d символов.', self::NOTE_LENGTH));
+        }
+
+        $this->expenses->updateNote($expenseId, $note === '' ? null : $note);
+
+        return $this->findActive($expenseId);
     }
 
     public function changeCategory(int $expenseId, int $categoryId): ExpenseView

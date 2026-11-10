@@ -73,8 +73,16 @@ final class ExpenseParserTest extends TestCase
         $own = SplitType::PayerOnly;
         $for = SplitType::OtherOnly;
 
-        yield 'default currency and date' => ['17000 продукты', 17000, 'AMD', $d, ['groceries'], $eq, null];
-        yield 'comma decimal, eur, date' => ['18,5 eur чатгпт 10.11', 1850, 'EUR', $d, ['subscriptions'], $eq, null];
+        yield 'default currency and date' => ['17000 продукты', 17000, 'AMD', $d, ['groceries'], $eq, 'продукты'];
+        yield 'comma decimal, eur, date' => [
+            '18,5 eur чатгпт 10.11',
+            1850,
+            'EUR',
+            $d,
+            ['subscriptions'],
+            $eq,
+            'чатгпт',
+        ];
         yield 'yesterday with note' => [
             '9700 доставка кари вчера',
             9700,
@@ -82,14 +90,14 @@ final class ExpenseParserTest extends TestCase
             '2026-11-09',
             ['delivery'],
             $eq,
-            'кари',
+            'доставка кари',
         ];
         yield 'negative refund in rub' => ['-2500 руб от алисы', -250000, 'RUB', $d, [], $eq, 'от алисы'];
         yield 'symbol after amount' => ['18.5 €', 1850, 'EUR', $d, [], $eq, null];
-        yield 'symbol before amount' => ['€18.5 netflix', 1850, 'EUR', $d, ['subscriptions'], $eq, null];
+        yield 'symbol before amount' => ['€18.5 netflix', 1850, 'EUR', $d, ['subscriptions'], $eq, 'netflix'];
         yield 'dollar sign before amount' => ['$12.99 icloud', 1299, 'USD', $d, [], $eq, 'icloud'];
         yield 'usd word' => ['40 usd 09.11', 4000, 'USD', '2026-11-09', [], $eq, null];
-        yield 'quoted keyword' => ['1200 «бензин»', 1200, 'AMD', $d, ['gas'], $eq, null];
+        yield 'quoted keyword' => ['1200 «бензин»', 1200, 'AMD', $d, ['gas'], $eq, 'бензин'];
         yield 'detached plus sign' => ['+ 5000 06.11.2026', 5000, 'AMD', '2026-11-06', [], $eq, null];
         yield 'detached unicode minus' => ['− 300 руб', -30000, 'RUB', $d, [], $eq, null];
         yield 'lone sign is a note' => ['700 + кофе', 700, 'AMD', $d, [], $eq, '+ кофе'];
@@ -100,13 +108,21 @@ final class ExpenseParserTest extends TestCase
             '2026-11-05',
             ['delivery'],
             $eq,
-            'кари',
+            'доставка кари',
         ];
         yield 'dollar sign after amount' => ['7$ долл', 700, 'USD', $d, [], $eq, 'долл'];
-        yield 'alias glued to amount' => ['2500р бензин', 250000, 'RUB', $d, ['gas'], $eq, null];
+        yield 'alias glued to amount' => ['2500р бензин', 250000, 'RUB', $d, ['gas'], $eq, 'бензин'];
         yield 'day before yesterday' => ['1500 драм позавчера', 1500, 'AMD', '2026-11-08', [], $eq, null];
-        yield 'keyword prefix match' => ['3000 магазин у дома', 3000, 'AMD', $d, ['groceries'], $eq, 'у дома'];
-        yield 'case insensitive, dedupe' => ['5000 ПРОДУКТЫ Ашан', 5000, 'AMD', $d, ['groceries'], $eq, null];
+        yield 'keyword prefix match' => ['3000 магазин у дома', 3000, 'AMD', $d, ['groceries'], $eq, 'магазин у дома'];
+        yield 'case insensitive, dedupe' => [
+            '5000 ПРОДУКТЫ Ашан',
+            5000,
+            'AMD',
+            $d,
+            ['groceries'],
+            $eq,
+            'ПРОДУКТЫ Ашан',
+        ];
         yield 'ambiguous category' => [
             '12000 продукты доставка',
             12000,
@@ -114,7 +130,7 @@ final class ExpenseParserTest extends TestCase
             $d,
             ['groceries', 'delivery'],
             $eq,
-            null,
+            'продукты доставка',
         ];
         yield 'personal expense' => ['700 кофе лично', 700, 'AMD', $d, [], $own, 'кофе'];
         yield 'paid for the other one' => ['3000 цветы ей', 3000, 'AMD', $d, [], $for, 'цветы'];
@@ -122,14 +138,14 @@ final class ExpenseParserTest extends TestCase
         yield 'date in future goes back' => ['100 31.12', 100, 'AMD', '2025-12-31', [], $eq, null];
         yield 'two digit year' => ['100 15.03.25', 100, 'AMD', '2025-03-15', [], $eq, null];
         yield 'amount not first token' => ['такси 2000', 2000, 'AMD', $d, [], $eq, 'такси'];
-        yield 'punctuation is ignored' => ['1000, продукты!', 1000, 'AMD', $d, ['groceries'], $eq, null];
+        yield 'punctuation is ignored' => ['1000, продукты!', 1000, 'AMD', $d, ['groceries'], $eq, 'продукты'];
         yield 'second currency is a note' => ['1000 eur rub', 100000, 'EUR', $d, [], $eq, 'rub'];
         yield 'today word, euro word' => ['50.5 евро сегодня', 5050, 'EUR', $d, [], $eq, null];
-        yield 'explicit plus sign' => ['+300 прочее', 300, 'AMD', $d, ['other'], $eq, null];
+        yield 'explicit plus sign' => ['+300 прочее', 300, 'AMD', $d, ['other'], $eq, 'прочее'];
         yield 'trailing zeros in amd' => ['18.00 драм', 18, 'AMD', $d, [], $eq, null];
         yield 'extra whitespace' => ["  700\t\tкофе   лично ", 700, 'AMD', $d, [], $own, 'кофе'];
         yield 'short keyword exact only' => ['1000 газета', 1000, 'AMD', $d, [], $eq, 'газета'];
-        yield 'yo is normalized' => ['1000 Прочеё', 1000, 'AMD', $d, ['other'], $eq, null];
+        yield 'yo is normalized' => ['1000 Прочеё', 1000, 'AMD', $d, ['other'], $eq, 'Прочеё'];
     }
 
     /**

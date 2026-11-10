@@ -38,6 +38,7 @@ final class DashboardController extends AbstractController
         'added'    => 'Трата записана.',
         'deleted'  => 'Удалено.',
         'category' => 'Категория изменена.',
+        'note'     => 'Заметка сохранена.',
         'split'    => 'Отмечено, чья трата.',
         'settled'  => 'Перевод записан.',
         'sent'     => 'Перевод другому человеку записан как личная трата отправителя, в категорию «Переводы».',
@@ -148,6 +149,18 @@ final class DashboardController extends AbstractController
         $notice = $transfer->isBetweenParticipants() ? 'settled' : 'sent';
 
         return $this->back($request, $notice, null, MonthPeriod::containing($transfer->date));
+    }
+
+    #[Route('/expenses/{id}/note', name: 'web_expense_note', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function changeNote(Request $request, int $id): Response
+    {
+        try {
+            $this->editor->changeNote($id, mb_substr($request->request->getString('note'), 0, 1000));
+        } catch (UserError) {
+            return $this->back($request, null);
+        }
+
+        return $this->back($request, 'note', $id);
     }
 
     #[Route('/expenses/{id}/category', name: 'web_expense_category', requirements: ['id' => '\d+'], methods: ['POST'])]

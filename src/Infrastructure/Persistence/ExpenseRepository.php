@@ -89,6 +89,18 @@ final readonly class ExpenseRepository
         return array_map($this->hydrateView(...), $rows);
     }
 
+    public function updateNote(int $id, ?string $note): void
+    {
+        $this->connection->createQueryBuilder()
+            ->update('expense')
+            ->set('note', ':note')
+            ->where('id = :id')
+            ->andWhere('deleted_at IS NULL')
+            ->setParameter('note', $note)
+            ->setParameter('id', $id, ParameterType::INTEGER)
+            ->executeStatement();
+    }
+
     public function updateCategory(int $id, int $categoryId): void
     {
         $this->connection->createQueryBuilder()

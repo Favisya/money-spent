@@ -124,8 +124,13 @@
                                         </select>
                                         <noscript><button class="link" type="submit">ок</button></noscript>
                                     </form>
-                                    {% if e.note %}<span class="note">{{ e.note }}</span>{% endif %}
-                                </td>
+                                    <form method="post" action="{{ path('web_expense_note', {id: e.id}) }}" class="inline note-edit">
+                                        <input type="hidden" name="back" value="{{ d.period.key }}">
+                                        {% if d.filter %}<input type="hidden" name="who" value="{{ d.filter.key }}">{% endif %}
+                                        <input class="note-edit__input" name="note" maxlength="255" value="{{ e.note }}"
+                                               placeholder="+ заметка" aria-label="Заметка к трате"
+                                               onchange="this.form.requestSubmit()">
+                                    </form>                                </td>
                                 <td>{{ e.payerName }}</td>
                                 <td>
                                     {% set owner = d.ownerOf(e) %}

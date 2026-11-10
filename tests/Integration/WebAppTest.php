@@ -84,6 +84,11 @@ final class WebAppTest extends KernelTestCase
         $this->post('/expenses/1/category', ['category' => $delivery, 'back' => '2026-11']);
         self::assertSame($delivery, (int) $this->db->fetchOne('SELECT category_id FROM expense'));
 
+        $this->post('/expenses/1/note', ['note' => '  подписка  на год ', 'back' => '2026-11']);
+        self::assertSame('подписка на год', $this->db->fetchOne('SELECT note FROM expense WHERE id = 1'));
+        $this->post('/expenses/1/note', ['note' => '', 'back' => '2026-11']);
+        self::assertNull($this->db->fetchOne('SELECT note FROM expense WHERE id = 1'));
+
         $this->post('/expenses/1/delete', ['back' => '2026-11']);
         self::assertNotNull($this->db->fetchOne('SELECT deleted_at FROM expense'));
     }
@@ -352,17 +357,17 @@ final class WebAppTest extends KernelTestCase
 
         self::assertSame(
             [
-                ['2026-11-05', 'Анна', 9700, 'AMD', 'delivery', 'кари'],
+                ['2026-11-05', 'Анна', 9700, 'AMD', 'delivery', 'доставка кари'],
                 ['2026-11-05', 'Анна', 17000, 'AMD', 'groceries', null],
                 ['2026-11-10', 'Борис', 100000, 'RUB', 'other', 'на майн'],
                 ['2026-11-06', 'Анна', 5000, 'AMD', 'other', null],
                 ['2026-11-07', 'Анна', 8000, 'AMD', 'groceries', null],
                 ['2026-11-08', 'Борис', 21000, 'AMD', 'delivery', null],
                 ['2026-11-09', 'Борис', 250000, 'RUB', 'other', 'от алисы'],
-                ['2026-11-10', 'Анна', 13930, 'AMD', 'utilities', null],
-                ['2026-11-10', 'Анна', 1850, 'EUR', 'subscriptions', null],
-                ['2026-11-10', 'Анна', 4540, 'AMD', 'gas', null],
-                ['2026-11-10', 'Анна', 11000, 'AMD', 'utilities', null],
+                ['2026-11-10', 'Анна', 13930, 'AMD', 'utilities', 'комуналка'],
+                ['2026-11-10', 'Анна', 1850, 'EUR', 'subscriptions', 'чатгпт'],
+                ['2026-11-10', 'Анна', 4540, 'AMD', 'gas', 'газ'],
+                ['2026-11-10', 'Анна', 11000, 'AMD', 'utilities', 'свет'],
             ],
             array_map(array_values(...), $rows),
         );
