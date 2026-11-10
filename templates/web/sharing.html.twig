@@ -20,6 +20,16 @@
                 <p>Открыто для домашней сети:</p>
                 <ul class="plain">{% for url in urls %}<li><code>{{ url }}</code></li>{% endfor %}</ul>
                 <p class="hint">Подключение не шифруется — включай в домашней сети, а не в кафе.</p>
+                <details class="firewall">
+                    <summary>У второго Mac не открывается?</summary>
+                    <p class="hint">Скорее всего, входящие подключения закрыл брандмауэр macOS. Проверь, что оба Mac в одной
+                        сети, затем разреши подключения для сервера «Трат»: в <strong>Системных настройках → Сеть →
+                        Брандмауэр → Параметры</strong> поставь «Разрешать входящие подключения» у <code>php</code>, или
+                        выполни в Терминале (спросит пароль):</p>
+                    <pre class="firewall__cmd"><code>sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add '{{ server }}'
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp '{{ server }}'</code></pre>
+                    <p class="hint">После обновления приложения это нужно сделать заново.</p>
+                </details>
             {% endif %}
         </section>
 

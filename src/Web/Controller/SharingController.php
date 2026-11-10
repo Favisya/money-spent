@@ -96,6 +96,7 @@ final class SharingController extends AbstractController
             'participants' => $this->participants->all(),
             'meId'         => $this->me->id(),
             'devices'      => $this->pairing->devices(),
+            'server'       => PHP_BINARY,
             'code'         => null,
             'codeFor'      => null,
             'error'        => null,

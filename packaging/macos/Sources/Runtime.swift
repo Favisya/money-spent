@@ -361,6 +361,10 @@ final class Runtime {
         guard socketFD >= 0 else { return false }
         defer { close(socketFD) }
 
+        // Like "php -S": connections of the previous run in TIME_WAIT must not move the server to another port.
+        var reuse: Int32 = 1
+        setsockopt(socketFD, SOL_SOCKET, SO_REUSEADDR, &reuse, socklen_t(MemoryLayout<Int32>.size))
+
         var address = sockaddr_in()
         address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
         address.sin_family = sa_family_t(AF_INET)

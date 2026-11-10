@@ -704,3 +704,16 @@ form.block .button--quiet { margin-top: 0.85rem; }
 .cell-edit--amount { width: 6.5rem; text-align: right; }
 .amount-edit { white-space: nowrap; }
 .amount-edit__currency { font-family: var(--mono); font-size: 0.85rem; max-width: 4.5rem; margin-left: 0.25rem; }
+
+/* sharing: firewall help */
+.firewall { margin-top: 0.75rem; }
+.firewall summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; }
+.firewall__cmd {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0.5rem 0.65rem;
+    overflow-x: auto;
+    white-space: pre;
+}
