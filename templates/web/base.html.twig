@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>{% block title %}Траты{% endblock %}</title>
+    <link rel="stylesheet" href="/app.css">
+    <script src="/app.js" defer></script>
+</head>
+<body>
+<header class="topbar">
+    <div class="wrap topbar__inner">
+        <a class="brand" href="{{ path('web_dashboard') }}">Траты<span class="brand__dot">·</span><span class="brand__sub">на двоих</span></a>
+        <nav class="nav" aria-label="Разделы">
+            {% set route = app.request.attributes.get('_route') %}
+            <a href="{{ path('web_dashboard') }}" {{ route starts with 'web_dashboard' ? 'aria-current="page"' }}>Обзор</a>
+            <a href="{{ path('web_analytics') }}" {{ route starts with 'web_analytics' ? 'aria-current="page"' }}>Аналитика</a>
+            <a href="{{ path('web_recurring') }}" {{ route starts with 'web_recurring' ? 'aria-current="page"' }}>Регулярные</a>
+            <a href="{{ path('web_import') }}" {{ route starts with 'web_import' ? 'aria-current="page"' }}>Импорт</a>
+            <a href="{{ path('web_categories') }}" {{ route starts with 'web_categor' ? 'aria-current="page"' }}>Категории</a>
+            <a href="{{ path('web_participants') }}" {{ route starts with 'web_participant' ? 'aria-current="page"' }}>Участники</a>
+        </nav>
+        <form class="currency" method="post" action="{{ path('web_display_currency') }}" aria-label="Валюта показа">
+            <input type="hidden" name="back" value="{{ app.request.requestUri }}">
+            {% set shownCurrency = display_currency() %}
+            {% for c in display_choices() %}
+                <button type="submit" name="code" value="{{ c.code }}" {{ c.code == shownCurrency.code ? 'aria-pressed="true"' : 'aria-pressed="false"' }}>{{ c.code }}</button>
+            {% endfor %}
+        </form>
+    </div>
+</header>
+<main class="wrap">
+    {% block body %}{% endblock %}
+</main>
+<div class="tip" id="tip" role="tooltip" hidden></div>
+</body>
+</html>

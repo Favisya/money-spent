@@ -1,0 +1,11 @@
+<table class="bars">
+    <tbody>
+    {% for c in d.report.categories %}
+        <tr>
+            <th scope="row" class="bars__label">{{ c.title }} <span class="muted num">{{ c.count }}</span></th>
+            <td class="bars__track"><div class="bars__fill" style="width: {{ d.categoryShare(c.amount.minor) }}%"></div></td>
+            <td class="r num bars__value">{{ c.amount|shown_number }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>

@@ -1,0 +1,52 @@
+parameters:
+    app.timezone: '%env(APP_TIMEZONE)%'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        bind:
+            string $baseCurrencyCode: '%app.base_currency%'
+            string $defaultCategoryCode: '%app.default_category%'
+            string $timezone: '%app.timezone%'
+            string $webhookSecret: '%env(TELEGRAM_WEBHOOK_SECRET)%'
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/Kernel.php'
+            - '../src/Domain/'
+
+    App\Domain\Split\SplitCalculator: ~
+    App\Domain\Balance\BalanceCalculator: ~
+
+    App\Domain\Money\ExchangeRateProvider: '@App\Infrastructure\Rates\DbalExchangeRateProvider'
+    App\Application\Rates\RateSource: '@App\Infrastructure\Rates\CbaRateSource'
+    App\Bot\Telegram\TelegramClient: '@App\Infrastructure\Telegram\HttpTelegramClient'
+    App\Bot\Telegram\TelegramAdminClient: '@App\Infrastructure\Telegram\HttpTelegramClient'
+
+    App\Infrastructure\Telegram\HttpTelegramClient:
+        arguments:
+            $httpClient: '@telegram.http_client'
+            $botToken: '%env(TELEGRAM_BOT_TOKEN)%'
+
+    App\Infrastructure\Rates\CbaRateSource:
+        arguments:
+            $httpClient: '@cba.http_client'
+
+    App\Bot\AccessPolicy:
+        arguments:
+            $allowedTelegramIds: '%env(csv:ALLOWED_TELEGRAM_IDS)%'
+
+    App\Application\Parsing\ParserFactory:
+        arguments:
+            $splitAliases: '%app.split_aliases%'
+
+    App\Application\Transfer\TransferParser:
+        arguments:
+            $transferVerbs: '%app.transfer_verbs%'
+
+    App\Console\SeedReferenceDataCommand:
+        arguments:
+            $currencies: '%app.reference.currencies%'
+            $categories: '%app.reference.categories%'

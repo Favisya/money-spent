@@ -1,0 +1,29 @@
+{# Signature element: the balance between the two of us as a single track. #}
+{% if line %}
+    <section class="debt" aria-label="Баланс">
+        <p class="debt__sentence">
+            {% if line.settled %}
+                Никто никому не должен
+            {% else %}
+                <strong>{{ line.debtor.name }}</strong> должен(на) <strong>{{ line.creditor.name }}</strong>
+                <span class="num">{{ line.amount|shown }}</span>
+            {% endif %}
+        </p>
+        <div class="debt__track">
+            <span class="debt__name">{{ line.left.name }}</span>
+            <span class="debt__rail">
+                <span class="debt__half debt__half--left">
+                    {% if not line.settled and line.creditorIsLeft %}<span class="debt__fill" style="width: {{ line.percent }}%"></span>{% endif %}
+                </span>
+                <span class="debt__zero"></span>
+                <span class="debt__half debt__half--right">
+                    {% if not line.settled and not line.creditorIsLeft %}<span class="debt__fill" style="width: {{ line.percent }}%"></span>{% endif %}
+                </span>
+            </span>
+            <span class="debt__name">{{ line.right.name }}</span>
+        </div>
+        {% if pending > 0 %}
+            <p class="hint">Записей без курса пока не учтено: {{ pending }}.</p>
+        {% endif %}
+    </section>
+{% endif %}

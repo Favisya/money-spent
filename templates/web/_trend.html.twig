@@ -1,0 +1,12 @@
+<table class="trend" aria-label="Траты по месяцам, {{ display_currency().code }}">
+    <tr class="trend__bars">
+        {% for p in trend %}
+            <td title="{{ p.period|month_label }}: {{ p.total|shown }}">
+                <div class="trend__col{{ p.period.key == current.key ? ' trend__col--current' }}" style="height: {{ max(p.percent, p.total.minor > 0 ? 3 : 0) }}%"></div>
+            </td>
+        {% endfor %}
+    </tr>
+    <tr class="trend__labels">
+        {% for p in trend %}<td>{{ p.period|month_short }}</td>{% endfor %}
+    </tr>
+</table>

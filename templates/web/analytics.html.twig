@@ -1,0 +1,297 @@
+{% extends 'web/base.html.twig' %}
+
+{% set a = view.analysis %}
+{% set p = a.period %}
+{% set periodQuery = all ? {all: 1} : (months > 0 ? {n: months} : {from: p.from.key, to: p.to.key}) %}
+{% block title %}Аналитика — Траты{% endblock %}
+
+{% block body %}
+    <div class="monthbar">
+        <h1 class="monthbar__title">
+            {% if p.isSingleMonth %}{{ p.from|month_label }}{% else %}{{ p.from|month_label }} — {{ p.to|month_label }}{% endif %}
+        </h1>
+    </div>
+
+    <form class="toolbar" method="get" action="{{ path('web_analytics') }}">
+        <nav class="segmented" aria-label="Период">
+            {% for label, n in view.presets %}
+                <a href="{{ path('web_analytics', {n: n, who: app.request.query.get('who')}) }}"
+                   {{ not all and (months == n or (months == 0 and n == 12 and not app.request.query.has('from'))) ? 'aria-current="true"' }}>{{ label }}</a>
+            {% endfor %}
+            <a href="{{ path('web_analytics', {all: 1, who: app.request.query.get('who')}) }}"
+               {{ all ? 'aria-current="true"' }}>Всё время</a>
+        </nav>
+        <div class="toolbar__range">
+            <label class="sr" for="from">С месяца</label>
+            <input id="from" class="input input--month" type="month" name="from" value="{{ p.from.key }}" pattern="\d{4}-\d{2}">
+            <span class="muted">—</span>
+            <label class="sr" for="to">По месяц</label>
+            <input id="to" class="input input--month" type="month" name="to" value="{{ p.to.key }}" pattern="\d{4}-\d{2}">
+            {% if app.request.query.get('who') %}<input type="hidden" name="who" value="{{ app.request.query.get('who') }}">{% endif %}
+            <button class="button button--quiet" type="submit">Показать</button>
+        </div>
+    </form>
+    {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+    <section class="owners" aria-label="Общие и личные траты">
+        <div class="owners__bar" role="img"
+             aria-label="{% for o in a.owners %}{{ o.label }} {{ a.share(a.ownerTotals[o.key] ?? 0, a.ownersTotal) }}%{{ not loop.last ? ', ' }}{% endfor %}">
+            {% for o in a.owners %}
+                {% set v = a.ownerTotals[o.key] ?? 0 %}
+                {% if v > 0 %}
+                    <span class="owners__seg" style="flex-grow: {{ v }}; background: {{ view.ownerColor(o.key) }}"
+                          data-tip="{{ o.isShared ? 'Общие' : o.label ~ ' лично' }}: {{ v|shown }}"></span>
+                {% endif %}
+            {% endfor %}
+        </div>
+        <nav class="owners__list" aria-label="Чьи траты показывать">
+            <a class="owners__item" href="{{ path('web_analytics', periodQuery) }}" {{ a.filter is null ? 'aria-current="true"' }}>
+                <span class="owners__name">Все траты</span>
+                <span class="owners__sum num">{{ a.ownersTotal|shown }}</span>
+            </a>
+            {% for o in a.owners %}
+                {% set v = a.ownerTotals[o.key] ?? 0 %}
+                <a class="owners__item" href="{{ path('web_analytics', periodQuery|merge({who: o.key})) }}"
+                   {{ a.filter and a.filter.key == o.key ? 'aria-current="true"' }}>
+                    <span class="owners__name"><i class="swatch" style="background: {{ view.ownerColor(o.key) }}"></i>{{ o.isShared ? 'Общие' : o.label ~ ' лично' }}</span>
+                    <span class="owners__sum num">{{ v|shown }}</span>
+                    <span class="owners__pct num muted">{{ a.share(v, a.ownersTotal) }}%</span>
+                </a>
+            {% endfor %}
+        </nav>
+    </section>
+
+    <section class="kpis">
+        <div><p class="label">{{ a.filter ? (a.filter.isShared ? 'Общие' : a.filter.label ~ ' лично') : 'Всего' }}</p><p class="total num">{{ a.total|shown }}</p><p class="equivalents num">{% for eq in equivalents(a.total) %}<span>{{ eq }}</span>{% endfor %}</p></div>
+        <div><p class="label">В среднем в день</p><p class="kpi num">{{ a.dailyAverage|shown }}</p></div>
+        <div><p class="label">Трат</p><p class="kpi num">{{ a.count }}</p></div>
+        {% if a.count > 0 %}<div><p class="label">Средняя трата</p><p class="kpi num">{{ (a.total // a.count)|shown }}</p></div>{% endif %}
+    </section>
+    {% if a.pendingCount > 0 %}<p class="hint warn">Без курса и не в итогах: {{ a.pendingCount }}</p>{% endif %}
+
+    {% if a.isEmpty %}
+        <div class="block empty">
+            <p>За этот период нет трат{{ a.filter ? ' в этом разрезе' }}.</p>
+            <p class="hint">Выбери период подлиннее или <a href="{{ path('web_dashboard') }}">запиши трату</a>.</p>
+        </div>
+    {% else %}
+        <section class="block">
+            <div class="block__head">
+                <h2>Куда уходят деньги</h2>
+                <span class="muted hint">кто платил → чья трата → категория</span>
+            </div>
+            {% set s = view.sankey %}
+            <div class="chart chart--wide">
+                <svg class="sankey" viewBox="-110 -24 {{ s.width + 220 }} {{ s.height + 34 }}" role="img"
+                     aria-label="Потоки денег: кто платил, чья трата и на какую категорию">
+                    <text class="sankey__col" x="0" y="-10">Кто платил</text>
+                    <text class="sankey__col" x="{{ s.width / 2 }}" y="-10" text-anchor="middle">Чья трата</text>
+                    <text class="sankey__col" x="{{ s.width }}" y="-10" text-anchor="end">Категория</text>
+                    <g class="sankey__flows">
+                        {% for f in s.flows %}
+                            <path d="{{ f.path }}" stroke="{{ f.color }}" stroke-width="{{ f.width }}"
+                                  data-tip="{{ (s.nodes|filter(n => n.key == f.source)|first).label }} → {{ (s.nodes|filter(n => n.key == f.target)|first).label }}: {{ f.value|shown }}"></path>
+                        {% endfor %}
+                    </g>
+                    {% for n in s.nodes %}
+                        <rect x="{{ n.x }}" y="{{ n.y }}" width="10" height="{{ n.height }}" rx="2" fill="{{ n.color }}"
+                              data-tip="{{ n.label }}: {{ n.value|shown }}"></rect>
+                        <text class="sankey__label" x="{{ n.labelX }}" y="{{ n.labelY }}" text-anchor="{{ n.anchor }}"
+                              dominant-baseline="middle">{{ n.label }} <tspan class="sankey__value">{{ n.value|shown_number }}</tspan></text>
+                    {% endfor %}
+                </svg>
+            </div>
+        </section>
+
+        <div class="grid2">
+            <section class="block">
+                <div class="block__head"><h2>Кто на что тратит</h2></div>
+                {% set c = view.chord %}
+                <div class="chart">
+                    <svg class="chord" viewBox="{{ -(c.radius + 110) }} {{ -(c.radius + 40) }} {{ 2 * (c.radius + 110) }} {{ 2 * (c.radius + 40) }}"
+                         role="img" aria-label="Хордовая диаграмма: траты владельцев по категориям">
+                        <g class="chord__ribbons">
+                            {% for r in c.ribbons %}
+                                <path d="{{ r.path }}" fill="{{ r.color }}" data-group="{{ r.source }} {{ r.target }}"
+                                      data-tip="{{ (c.groups|filter(g => g.key == r.source)|first).label }} · {{ (c.groups|filter(g => g.key == r.target)|first).label }}: {{ r.value|shown }}"></path>
+                            {% endfor %}
+                        </g>
+                        {% for g in c.groups %}
+                            <path class="chord__group" d="{{ g.path }}" fill="{{ g.color }}" data-key="{{ g.key }}"
+                                  data-tip="{{ g.label }}: {{ g.value|shown }}"></path>
+                            <text class="chord__label" x="{{ g.labelX }}" y="{{ g.labelY }}" text-anchor="{{ g.anchor }}"
+                                  dominant-baseline="middle">{{ g.label }}</text>
+                        {% endfor %}
+                    </svg>
+                </div>
+                <details class="tableview">
+                    <summary>Таблица</summary>
+                    <table class="figures">
+                        <thead><tr><th></th>{% for o in a.owners %}<th class="r">{{ o.isShared ? 'Общие' : o.label }}</th>{% endfor %}</tr></thead>
+                        <tbody>
+                        {% for id, total in a.categoryTotals %}
+                            <tr>
+                                <th scope="row">{{ a.categories[id].title ?? '—' }}</th>
+                                {% for o in a.owners %}<td class="r num">{{ (a.ownerCategory[o.key][id] ?? 0)|shown_number }}</td>{% endfor %}
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </details>
+            </section>
+
+            <section class="block">
+                <div class="block__head"><h2>Категории</h2></div>
+                <div class="donut">
+                    <svg viewBox="-95 -95 190 190" role="img" aria-label="Доли категорий">
+                        {% for seg in view.donut %}
+                            <path d="{{ seg.path }}" fill="{{ seg.color }}" data-tip="{{ seg.label }}: {{ seg.value|shown }} · {{ seg.percent }}%"></path>
+                        {% endfor %}
+                        <text class="donut__total" x="0" y="-4" text-anchor="middle">{{ a.total|shown_number }}</text>
+                        <text class="donut__unit" x="0" y="16" text-anchor="middle">{{ display_currency().code }}</text>
+                    </svg>
+                    <table class="figures donut__legend">
+                        <tbody>
+                        {% for seg in view.donut %}
+                            <tr>
+                                <th scope="row"><i class="swatch" style="background: {{ seg.color }}"></i>{{ seg.label }}</th>
+                                <td class="r num">{{ seg.value|shown_number }}</td>
+                                <td class="r num muted">{{ seg.percent }}%</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        {% if p.monthCount > 1 %}
+            <section class="block">
+                <div class="block__head">
+                    <h2>По месяцам</h2>
+                    <span class="legend">
+                        {% for o in a.owners %}<span><i class="swatch" style="background: {{ view.ownerColor(o.key) }}"></i>{{ o.isShared ? 'Общие' : o.label ~ ' лично' }}</span>{% endfor %}
+                    </span>
+                </div>
+                <div class="stack" style="--cols: {{ p.monthCount }}">
+                    {% for m in p.months %}
+                        {% set byOwner = a.monthOwner[m.key] ?? {} %}
+                        <a class="stack__col" href="{{ path('web_dashboard', {m: m.key}) }}" data-tip="{{ m|month_label }}: {{ (byOwner|reduce((s, v) => s + v, 0))|shown }}">
+                            <span class="stack__bar">
+                                {% for o in a.owners|reverse %}
+                                    {% set v = byOwner[o.key] ?? 0 %}
+                                    {% if v > 0 %}<span class="stack__seg" style="height: {{ view.percentOfMonthMax(v) }}%; background: {{ view.ownerColor(o.key) }}"></span>{% endif %}
+                                {% endfor %}
+                            </span>
+                            <span class="stack__label">{{ m|month_short }}</span>
+                        </a>
+                    {% endfor %}
+                </div>
+            </section>
+        {% endif %}
+
+        <section class="block">
+            <div class="block__head"><h2>Категории по месяцам</h2></div>
+            <div class="scroll">
+                <table class="pivot">
+                    <thead>
+                    <tr>
+                        <th scope="col">Категория</th>
+                        {% for m in p.months %}<th scope="col" class="r">{{ m|month_short }}{% if m.month == 1 or loop.first %} <span class="muted">{{ m.year % 100 }}</span>{% endif %}</th>{% endfor %}
+                        <th scope="col" class="r">Итого</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for id, total in a.categoryTotals %}
+                        <tr>
+                            <th scope="row"><i class="swatch" style="background: {{ view.categoryColor(id) }}"></i>{{ a.categories[id].title ?? '—' }}</th>
+                            {% for m in p.months %}
+                                {% set v = a.monthCategory[m.key][id] ?? 0 %}
+                                <td class="r num" style="--heat: {{ v > 0 ? (8 + 52 * v / view.cellMax)|round : 0 }}%">{{ v != 0 ? v|shown_number : '' }}</td>
+                            {% endfor %}
+                            <td class="r num strong">{{ total|shown_number }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                    <tfoot>
+                    <tr>
+                        <th scope="row">Итого</th>
+                        {% for m in p.months %}{% set mt = (a.monthCategory[m.key] ?? {})|reduce((s, v) => s + v, 0) %}<td class="r num">{{ mt != 0 ? mt|shown_number }}</td>{% endfor %}
+                        <td class="r num strong">{{ a.total|shown_number }}</td>
+                    </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </section>
+
+        <section class="block">
+            <div class="block__head"><h2>По дням</h2><span class="muted hint">чем темнее клетка, тем больше потрачено</span></div>
+            <div class="days">
+                {% if view.calendar is not empty %}
+                    <div class="scroll days__heat">
+                        <div class="heat" style="--weeks: {{ view.calendar|length }}">
+                            {% for week in view.calendar %}
+                                <div class="heat__week">
+                                    {% for cell in week %}
+                                        <span class="heat__day heat__day--{{ cell.inPeriod ? cell.level : 'out' }}"
+                                              {% if cell.inPeriod %}data-tip="{{ cell.date|date('d.m.Y') }}: {{ cell.totalMinor|shown }}"{% endif %}></span>
+                                    {% endfor %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+                <table class="bars days__week" aria-label="По дням недели">
+                    <tbody>
+                    {% for day, label in {1: 'пн', 2: 'вт', 3: 'ср', 4: 'чт', 5: 'пт', 6: 'сб', 7: 'вс'} %}
+                        {% set v = a.weekdays[day] ?? 0 %}
+                        <tr>
+                            <th scope="row" class="bars__label">{{ label }}</th>
+                            <td class="bars__track"><span class="bars__fill" style="width: {{ view.percentOfWeekdayMax(v) }}%"></span></td>
+                            <td class="r num bars__value">{{ v|shown_number }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        <div class="grid2">
+            <section class="block">
+                <div class="block__head"><h2>Самые крупные траты</h2></div>
+                <table class="ledger">
+                    <tbody>
+                    {% for e in a.topExpenses %}
+                        {% set o = a.ownerOf(e) %}
+                        <tr>
+                            <td class="num muted">{{ e.spentAt|date('d.m.y') }}</td>
+                            <td>{{ a.categories[e.categoryId].title ?? '—' }}{% if e.note %} <span class="note">{{ e.note }}</span>{% endif %}</td>
+                            <td><span class="owner-tag"><i class="swatch" style="background: {{ view.ownerColor(o.key) }}"></i>{{ o.isShared ? 'общая' : o.label }}</span></td>
+                            <td class="r num">{{ e.amountBaseMinor|shown_number }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="block">
+                <div class="block__head"><h2>Частые места и заметки</h2></div>
+                {% if a.topNotes is empty %}
+                    <p class="hint">Заметок нет. Всё, что после суммы и категории (<code>9700 доставка кари</code>), попадает сюда.</p>
+                {% else %}
+                    <table class="figures">
+                        <thead><tr><th></th><th class="r">раз</th><th class="r">{{ display_currency().code }}</th></tr></thead>
+                        <tbody>
+                        {% for n in a.topNotes %}
+                            <tr>
+                                <th scope="row">{{ n.note }}</th>
+                                <td class="r num muted">{{ n.count }}</td>
+                                <td class="r num">{{ n.totalMinor|shown_number }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                {% endif %}
+            </section>
+        </div>
+    {% endif %}
+{% endblock %}

@@ -1,0 +1,86 @@
+{% extends 'web/base.html.twig' %}
+
+{% block title %}Регулярные — Траты{% endblock %}
+
+{% block body %}
+    <div class="pagehead">
+        <h1>Регулярные траты</h1>
+        <p class="hint measure">Подписки и всё, что повторяется каждый месяц. В нужный день трата запишется сама — по курсу
+            ЦБ на этот день. Если приложение было закрыто, пропущенные месяцы допишутся при следующем запуске.
+            Готовую трату можно сделать регулярной кнопкой <span class="kbd">↻</span> в списке на обзоре.</p>
+    </div>
+    {% if notice ?? null %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
+
+    <form class="block recurring-form" method="post" action="{{ path('web_recurring_add') }}">
+        <h2>Новая регулярная трата</h2>
+        <div class="recurring-form__row">
+            <div class="recurring-form__text">
+                <label class="label" for="rec-text">Что и сколько</label>
+                <input id="rec-text" class="input input--wide" name="text" required maxlength="500" autocomplete="off"
+                       value="{{ text }}" placeholder="18,5 eur чатгпт">
+            </div>
+            <div>
+                <label class="label" for="rec-payer">Кто платит</label>
+                <select id="rec-payer" class="input" name="payer">
+                    {% for p in participants %}<option value="{{ p.id }}" {{ p.id == payerId ? 'selected' }}>{{ p.name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="label" for="rec-day">Число месяца</label>
+                <input id="rec-day" class="input input--day" type="number" name="day" min="1" max="31" required value="{{ day }}">
+            </div>
+        </div>
+        <fieldset class="whose">
+            <legend>Чья трата</legend>
+            {% for value, label in {equal: 'Общая', payer_only: 'Только платившего', other_only: 'За другого'} %}
+                <label><input type="radio" name="whose" value="{{ value }}" {{ whose == value ? 'checked' }}><span>{{ label }}</span></label>
+            {% endfor %}
+        </fieldset>
+        {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+        <button class="button" type="submit">Добавить</button>
+        <p class="hint">Если число месяца сегодня или ещё впереди, первая запись будет в этом месяце. 31 — значит последний
+            день месяца.</p>
+    </form>
+
+    <section class="block">
+        <div class="block__head"><h2>Список</h2><span class="muted num">{{ items|length }}</span></div>
+        {% if items is empty %}
+            <div class="empty"><p>Пока ничего. Например, <code>18,5 eur чатгпт</code> на 10-е число.</p></div>
+        {% else %}
+            <table class="ledger">
+                <thead>
+                <tr>
+                    <th scope="col">Число</th>
+                    <th scope="col">Что</th>
+                    <th scope="col">Платит</th>
+                    <th scope="col" class="r">Сумма</th>
+                    <th scope="col">Следующая</th>
+                    <th scope="col"><span class="sr">Действия</span></th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for r in items %}
+                    <tr class="{{ r.id == (highlight ?? 0) ? 'is-new' }}{{ r.active ? '' : ' is-off' }}">
+                        <td class="num">{{ r.dayOfMonth }}</td>
+                        <td>{{ r.categoryTitle }}{% if r.note %} <span class="note">{{ r.note }}</span>{% endif %}
+                            {% if r.split.value != 'equal' %}<span class="tag">{{ r.split|split_label }}</span>{% endif %}</td>
+                        <td>{{ r.payerName }}</td>
+                        <td class="r num">{{ r.amount|money }}</td>
+                        <td class="num muted">{{ r.active ? r.nextDate|date('d.m.Y') : 'на паузе' }}</td>
+                        <td class="r actions-cell">
+                            <form method="post" action="{{ path('web_recurring_active', {id: r.id}) }}" class="inline">
+                                <input type="hidden" name="active" value="{{ r.active ? '0' : '1' }}">
+                                <button class="link" type="submit">{{ r.active ? 'пауза' : 'включить' }}</button>
+                            </form>
+                            <form method="post" action="{{ path('web_recurring_delete', {id: r.id}) }}" class="inline"
+                                  onsubmit="return confirm('Удалить регулярную трату? Уже записанные траты останутся.')">
+                                <button class="link link--danger" type="submit">удалить</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </section>
+{% endblock %}

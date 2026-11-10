@@ -1,0 +1,295 @@
+{% extends 'web/base.html.twig' %}
+
+{% set d = dashboard %}
+{% set report = d.report %}
+{% set prev = d.period.previous %}
+{% block title %}{{ d.period|month_label }} — Траты{% endblock %}
+
+{% block body %}
+    <div class="monthbar">
+        <a class="monthbar__step" href="{{ path('web_dashboard', {m: prev.key}) }}" aria-label="Предыдущий месяц">←</a>
+        <h1 class="monthbar__title">{{ d.period|month_label }}</h1>
+        {% if d.period.isAfter(d.current) or d.period.key == d.current.key %}
+            <span class="monthbar__step monthbar__step--off" aria-hidden="true">→</span>
+        {% else %}
+            {% set next = d.period.endExclusive|date('Y-m') %}
+            <a class="monthbar__step" href="{{ path('web_dashboard', {m: next}) }}" aria-label="Следующий месяц">→</a>
+        {% endif %}
+        {% if d.period.key != d.current.key %}
+            <a class="monthbar__today" href="{{ path('web_dashboard') }}">к текущему</a>
+        {% endif %}
+    </div>
+
+    {% if notice is defined and notice %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
+
+    {{ include('web/_debt_line.html.twig', {line: d.debtLine, pending: d.balance.pendingCount}) }}
+
+    <div class="layout">
+        <div class="layout__main">
+            <form class="entry" method="post" action="{{ path('web_expense_add') }}">
+                <input type="hidden" name="back" value="{{ d.period.key }}">
+                <label class="label" for="entry-text">Новая трата</label>
+                <div class="entry__row">
+                    <input id="entry-text" class="input input--wide" name="text" required autocomplete="off" autofocus
+                           maxlength="500" value="{{ expenseText ?? '' }}" placeholder="18,5 eur чатгпт 10.11"
+                           aria-describedby="entry-help{{ expenseError is defined and expenseError ? ' entry-error' }}">
+                    <select class="input" name="payer" aria-label="Кто платил">
+                        {% for p in d.participants %}
+                            <option value="{{ p.id }}" {{ p.id == payerId ? 'selected' }}>{{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <button class="button" type="submit">Записать</button>
+                </div>
+                <fieldset class="whose kind">
+                    <legend>Что записать</legend>
+                    {% for value, label in {expense: 'Трата', transfer: 'Перевод'} %}
+                        <label><input type="radio" name="kind" value="{{ value }}" {{ (kind ?? 'expense') == value ? 'checked' }}><span>{{ label }}</span></label>
+                    {% endfor %}
+                </fieldset>
+                <fieldset class="whose transfer-to">
+                    <legend>Кому</legend>
+                    <select class="input" name="to" aria-label="Кому перевод">
+                        <option value="" {{ (transferTo ?? '') == '' ? 'selected' }}>второму участнику</option>
+                        {% for p in d.participants %}
+                            <option value="{{ p.id }}" {{ (transferTo ?? '') == p.id ~ '' ? 'selected' }}>{{ p.name }}</option>
+                        {% endfor %}
+                        <option value="other" {{ (transferTo ?? '') == 'other' ? 'selected' }}>другому человеку…</option>
+                    </select>
+                    <input class="input transfer-to__name" name="to_name" maxlength="64" placeholder="кому, например маме"
+                           value="{{ transferName ?? '' }}" aria-label="Кому, если не участнику">
+                    <p class="hint">Между вами перевод уменьшает долг. Другому человеку — запишется личной тратой отправителя.
+                        Можно и словами: <code>алиса скинула 5000</code> <code>скинул маме 10000</code></p>
+                </fieldset>
+                <fieldset class="whose whose--split">
+                    <legend>Чья трата</legend>
+                    {% for value, label in {equal: 'Общая', payer_only: 'Только платившего', other_only: 'За другого'} %}
+                        <label><input type="radio" name="whose" value="{{ value }}" {{ (whose ?? 'equal') == value ? 'checked' }}><span>{{ label }}</span></label>
+                    {% endfor %}
+                </fieldset>
+                <p id="entry-help" class="hint">Сумма, валюта, категория, дата, заметка — как в заметке:
+                    <code>17000 продукты</code> <code>9700 доставка вчера</code> <code>700 кофе лично</code>
+                    <code>3000 цветы ей</code></p>
+                {% if expenseError is defined and expenseError %}
+                    <p id="entry-error" class="error" role="alert">{{ expenseError }}</p>
+                {% endif %}
+            </form>
+
+            <section class="block">
+                <div class="block__head">
+                    <h2>Траты <span class="muted num">{{ d.expenses|length }}</span></h2>
+                    {% if d.totalCount > 0 %}
+                        <nav class="filters" aria-label="Чьи траты показывать">
+                            <a href="{{ path('web_dashboard', {m: d.period.key}) }}" {{ d.filter is null ? 'aria-current="true"' }}>все</a>
+                            {% for o in d.owners.owners %}
+                                <a href="{{ path('web_dashboard', {m: d.period.key, who: o.key}) }}" {{ d.filter and d.filter.key == o.key ? 'aria-current="true"' }}>{{ o.isShared ? 'общие' : o.label ~ ' лично' }}</a>
+                            {% endfor %}
+                        </nav>
+                    {% endif %}
+                </div>
+                {% if d.expenses is empty and d.totalCount > 0 %}
+                    <div class="empty"><p>В этом разрезе трат нет. <a href="{{ path('web_dashboard', {m: d.period.key}) }}">Показать все</a></p></div>
+                {% elseif d.expenses is empty %}
+                    <div class="empty">
+                        <p>В этом месяце ничего не записано.</p>
+                        <p class="hint">Впиши строку выше, например <code>17000 продукты</code>, или перенеси старую
+                            заметку целиком через <a href="{{ path('web_import') }}">импорт</a>.</p>
+                    </div>
+                {% else %}
+                    <table class="ledger">
+                        <thead>
+                        <tr>
+                            <th scope="col">Дата</th>
+                            <th scope="col">Категория и заметка</th>
+                            <th scope="col">Платил</th>
+                            <th scope="col">Чья</th>
+                            <th scope="col" class="r">Сумма</th>
+                            <th scope="col" class="r">{{ display_currency().code }}</th>
+                            <th scope="col"><span class="sr">Действия</span></th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for e in d.expenses %}
+                            <tr id="e{{ e.id }}" class="{{ e.id == (highlight ?? 0) ? 'is-new' }}">
+                                <td class="num muted">{{ e.spentAt|date('d.m') }}</td>
+                                <td>
+                                    <form method="post" action="{{ path('web_expense_category', {id: e.id}) }}" class="inline">
+                                        <input type="hidden" name="back" value="{{ d.period.key }}">
+                                        <select class="select-bare" name="category" aria-label="Категория" onchange="this.form.requestSubmit()">
+                                            {% if d.categories|filter(c => c.id == e.categoryId) is empty %}
+                                                <option value="{{ e.categoryId }}" selected disabled>{{ e.categoryTitle }} (скрыта)</option>
+                                            {% endif %}
+                                            {% for c in d.categories %}
+                                                <option value="{{ c.id }}" {{ c.id == e.categoryId ? 'selected' }}>{{ c.title }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <noscript><button class="link" type="submit">ок</button></noscript>
+                                    </form>
+                                    {% if e.note %}<span class="note">{{ e.note }}</span>{% endif %}
+                                </td>
+                                <td>{{ e.payerName }}</td>
+                                <td>
+                                    {% set owner = d.ownerOf(e) %}
+                                    <form method="post" action="{{ path('web_expense_split', {id: e.id}) }}" class="inline owner-tag">
+                                        <input type="hidden" name="back" value="{{ d.period.key }}">
+                                        {% if d.filter %}<input type="hidden" name="who" value="{{ d.filter.key }}">{% endif %}
+                                        <i class="swatch" style="background: var(--owner-{{ min(owner.slot, 3) }})"></i>
+                                        <select class="select-bare split-owner" name="split" aria-label="Чья трата" onchange="this.form.requestSubmit()">
+                                            <option value="equal" {{ e.split.value == 'equal' ? 'selected' }}>общая</option>
+                                            {% for p in d.participants %}
+                                                {% if p.id == e.payerId %}
+                                                    <option value="payer_only" {{ e.split.value == 'payer_only' ? 'selected' }}>{{ p.name }}</option>
+                                                {% elseif d.participants|length == 2 %}
+                                                    <option value="other_only" {{ e.split.value == 'other_only' ? 'selected' }}>{{ p.name }}</option>
+                                                {% endif %}
+                                            {% endfor %}
+                                            {% if d.participants|length > 2 %}
+                                                <option value="other_only" {{ e.split.value == 'other_only' ? 'selected' }}>за других</option>
+                                            {% endif %}
+                                        </select>
+                                        <noscript><button class="link" type="submit">ок</button></noscript>
+                                    </form>
+                                </td>
+                                <td class="r num">{{ e.amount|money }}</td>
+                                <td class="r num">
+                                    {% if e.amountBase is null %}
+                                        <span class="warn" title="Курса на эту дату пока нет">нет курса</span>
+                                    {% elseif e.amount.currency.code != display_currency().code %}
+                                        <span title="курс {{ e.rate|rate }}">{{ e.amountBase|shown_number }}</span>
+                                    {% else %}
+                                        <span class="muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td class="r actions-cell">
+                                    {% if e.recurringId %}
+                                        <a class="kbd" href="{{ path('web_recurring', {id: e.recurringId}) }}" title="Повторяется каждый месяц">↻</a>
+                                    {% else %}
+                                        <form method="post" action="{{ path('web_expense_recurring', {id: e.id}) }}" class="inline"
+                                              onsubmit="return confirm('Повторять эту трату каждый месяц {{ e.spentAt|date('j') }}-го числа?')">
+                                            <button class="link link--icon" type="submit" title="Повторять каждый месяц" aria-label="Повторять каждый месяц">↻</button>
+                                        </form>
+                                    {% endif %}
+                                    <form method="post" action="{{ path('web_expense_delete', {id: e.id}) }}" class="inline"
+                                          onsubmit="return confirm('Удалить трату?')">
+                                        <input type="hidden" name="back" value="{{ d.period.key }}">
+                                        <button class="link link--danger" type="submit" aria-label="Удалить трату">удалить</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                {% endif %}
+            </section>
+
+            {% if d.settlements is not empty %}
+                <section class="block">
+                    <div class="block__head"><h2>Переводы</h2></div>
+                    <table class="ledger">
+                        <tbody>
+                        {% for s in d.settlements %}
+                            <tr>
+                                <td class="num muted">{{ s.settledAt|date('d.m') }}</td>
+                                <td>{{ s.fromName }} → {{ s.toName }}{% if s.note %} <span class="note">{{ s.note }}</span>{% endif %}</td>
+                                <td class="r num">{{ s.amount|money }}</td>
+                                <td class="r">
+                                    <form method="post" action="{{ path('web_settlement_delete', {id: s.id}) }}" class="inline"
+                                          onsubmit="return confirm('Удалить перевод?')">
+                                        <input type="hidden" name="back" value="{{ d.period.key }}">
+                                        <button class="link link--danger" type="submit">удалить</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </section>
+            {% endif %}
+        </div>
+
+        <aside class="layout__side">
+            <section class="block">
+                <p class="label">Всего за месяц</p>
+                <p class="total num">{{ report.total|shown }}</p>
+                <p class="equivalents num">{% for eq in equivalents(report.total) %}<span>{{ eq }}</span>{% endfor %}</p>
+                {% set ownersTotal = d.owners.ownersTotal %}
+                {% if ownersTotal > 0 %}
+                    <div class="mini-split" role="img" aria-label="Общие и личные траты">
+                        {% for o in d.owners.owners %}
+                            {% set v = d.owners.ownerTotals[o.key] ?? 0 %}
+                            {% if v > 0 %}<span style="flex-grow: {{ v }}; background: var(--owner-{{ min(o.slot, 3) }})" data-tip="{{ o.isShared ? 'Общие' : o.label ~ ' лично' }}: {{ v|shown }}"></span>{% endif %}
+                        {% endfor %}
+                    </div>
+                    <table class="figures">
+                        <tbody>
+                        {% for o in d.owners.owners %}
+                            <tr>
+                                <th scope="row"><a class="owner-tag" href="{{ path('web_dashboard', {m: d.period.key, who: o.key}) }}"><i class="swatch" style="background: var(--owner-{{ min(o.slot, 3) }})"></i>{{ o.isShared ? 'Общие' : o.label ~ ' лично' }}</a></th>
+                                <td class="r num">{{ (d.owners.ownerTotals[o.key] ?? 0)|shown_number }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                {% endif %}
+                {% if report.pendingCount > 0 %}
+                    <p class="hint warn">Без курса и не в итоге: {{ report.pendingCount }}</p>
+                {% endif %}
+            </section>
+
+            {% if report.categories is not empty %}
+                <section class="block">
+                    <h2>По категориям</h2>
+                    {{ include('web/_category_bars.html.twig', {d: d}) }}
+                </section>
+
+                <section class="block">
+                    <h2>По участникам</h2>
+                    <table class="figures">
+                        <thead><tr><th></th><th class="r">заплатил</th><th class="r">доля</th></tr></thead>
+                        <tbody>
+                        {% for t in report.participants %}
+                            <tr>
+                                <th scope="row">{{ t.participant.name }}</th>
+                                <td class="r num">{{ t.paid|shown_number }}</td>
+                                <td class="r num">{{ t.share|shown_number }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </section>
+            {% endif %}
+
+            <section class="block">
+                <h2>За 12 месяцев</h2>
+                {{ include('web/_trend.html.twig', {trend: d.trend, current: d.period}) }}
+            </section>
+
+            {% if d.participants|length == 2 %}
+                <form class="block" method="post" action="{{ path('web_settlement_add') }}">
+                    <h2>Перевод</h2>
+                    <input type="hidden" name="back" value="{{ d.period.key }}">
+                    <label class="label" for="settle-from">Кто перевёл</label>
+                    <select id="settle-from" class="input" name="from">
+                        {% for p in d.participants %}
+                            <option value="{{ p.id }}" {{ d.debtLine and d.debtLine.debtor and d.debtLine.debtor.id == p.id ? 'selected' }}>{{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <label class="label" for="settle-amount">Сумма</label>
+                    <input id="settle-amount" class="input" name="amount" required maxlength="100" autocomplete="off"
+                           value="{{ settleAmount ?? (d.debtLine and not d.debtLine.settled ? d.debtLine.amount.toDecimal : '') }}"
+                           placeholder="2500 руб">
+                    {% if settleError is defined and settleError %}<p class="error" role="alert">{{ settleError }}</p>{% endif %}
+                    <button class="button button--quiet" type="submit">Записать перевод</button>
+                </form>
+            {% endif %}
+
+            <section class="block">
+                <h2>Выгрузить</h2>
+                <p class="actions">
+                    <a class="button" href="{{ path('web_report_pdf', {month: d.period.key}) }}">Отчёт PDF</a>
+                    <a class="button button--quiet" href="{{ path('web_export_csv', {month: d.period.key}) }}">CSV</a>
+                    <a class="button button--quiet" href="{{ path('web_analytics', {from: d.period.key, to: d.period.key}) }}">Аналитика</a>
+                </p>
+            </section>
+        </aside>
+    </div>
+{% endblock %}

@@ -1,0 +1,51 @@
+parameters:
+    app.base_currency: 'AMD'
+    app.default_category: 'other'
+
+    app.reference.currencies:
+        - code: 'AMD'
+          exponent: 0
+          aliases: ['amd', 'драм', 'драма', 'драмов', 'драмм', 'драмма', 'драммов', 'др', '֏']
+        - code: 'RUB'
+          exponent: 2
+          aliases: ['rub', 'руб', 'рублей', 'рубля', 'р', '₽']
+        - code: 'EUR'
+          exponent: 2
+          aliases: ['eur', 'евро', '€']
+        - code: 'USD'
+          exponent: 2
+          aliases: ['usd', 'доллар', 'доллара', 'долларов', 'долл', 'бакс', 'бакса', 'баксов', '$']
+
+    app.reference.categories:
+        - code: 'groceries'
+          title: 'Продукты'
+          keywords: ['продукт', 'магаз', 'ашан', 'супермаркет', 'сас', 'sas', 'карфур', 'ереван']
+        - code: 'delivery'
+          title: 'Доставка'
+          keywords: ['доставк', 'глово', 'glovo', 'wolt', 'яндекс', 'menu.am']
+        - code: 'utilities'
+          title: 'Коммуналка'
+          keywords: ['коммуналк', 'комуналк', 'свет', 'электричеств', 'вода', 'интернет', 'квартплат']
+        - code: 'gas'
+          title: 'Бензин'
+          keywords: ['бензин', 'заправк', 'топлив', 'газ']
+        - code: 'subscriptions'
+          title: 'Подписки'
+          keywords: ['подписк', 'чатгпт', 'chatgpt', 'gpt', 'netflix', 'spotify', 'youtube', 'icloud']
+        - code: 'transfers'
+          title: 'Переводы'
+          keywords: ['переводы']
+        - code: 'other'
+          title: 'Прочее'
+          keywords: ['прочее', 'другое']
+
+    # A line with one of these words is a money transfer, not an expense ("алиса скинула 5000").
+    app.transfer_verbs: ['скинул', 'скинула', 'скинули', 'кинул', 'кинула', 'перекинул', 'перекинула', 'перевел',
+                         'перевела', 'перевели', 'перевод', 'отдал', 'отдала', 'вернул', 'вернула', 'вернули']
+
+    app.split_aliases:
+        'лично': 'payer_only'
+        'личное': 'payer_only'
+        'себе': 'payer_only'
+        'ей': 'other_only'
+        'ему': 'other_only'

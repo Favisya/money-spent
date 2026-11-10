@@ -1,0 +1,42 @@
+{% extends 'web/base.html.twig' %}
+
+{% block title %}Участники — Траты{% endblock %}
+
+{% block body %}
+    <div class="pagehead">
+        <h1>Участники</h1>
+        <p class="muted measure">Учёт рассчитан на двоих. Telegram id нужен, только если пользуетесь ботом: тогда записи
+            из бота и отсюда попадут к одному и тому же человеку. Свой id подскажет @userinfobot.</p>
+    </div>
+
+    {% if saved ?? false %}<p class="notice" role="status">Сохранено.</p>{% endif %}
+
+    <div class="people">
+        {% for p in participants %}
+            <form class="block person" method="post" action="{{ path('web_participant_update', {id: p.id}) }}">
+                <label class="label" for="name-{{ p.id }}">Имя</label>
+                <input id="name-{{ p.id }}" class="input" name="name" value="{{ p.name }}" required maxlength="64">
+                <label class="label" for="tg-{{ p.id }}">Telegram id</label>
+                <input id="tg-{{ p.id }}" class="input num" name="telegram_id" value="{{ p.telegramId }}" inputmode="numeric" placeholder="необязательно">
+                {% if error is defined and errorFor == p.id %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+                <button class="button button--quiet" type="submit">Сохранить</button>
+            </form>
+        {% endfor %}
+
+        {% if participants|length < 2 %}
+            <form class="block person" method="post" action="{{ path('web_participant_create') }}">
+                <h2>{{ participants is empty ? 'Кто ведёт учёт?' : 'Второй участник' }}</h2>
+                <label class="label" for="name-new">Имя</label>
+                <input id="name-new" class="input" name="name" required maxlength="64" autofocus>
+                <label class="label" for="tg-new">Telegram id</label>
+                <input id="tg-new" class="input num" name="telegram_id" inputmode="numeric" placeholder="необязательно">
+                {% if error is defined and errorFor == 'new' %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+                <button class="button" type="submit">Добавить</button>
+            </form>
+        {% endif %}
+    </div>
+
+    {% if participants|length >= 1 %}
+        <p><a href="{{ path('web_dashboard') }}">К обзору →</a></p>
+    {% endif %}
+{% endblock %}

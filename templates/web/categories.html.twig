@@ -1,0 +1,73 @@
+{% extends 'web/base.html.twig' %}
+
+{% block title %}Категории — Траты{% endblock %}
+
+{% macro row(c, usage, admin, state) %}
+    {% set error = state.editError[c.id] ?? null %}
+    <form class="catrow{{ c.id == state.highlight ? ' is-new' }}" method="post" action="{{ path('web_category_save', {id: c.id}) }}" id="cat{{ c.id }}">
+        <div class="catrow__fields">
+            <label class="sr" for="title{{ c.id }}">Название</label>
+            <input id="title{{ c.id }}" class="input catrow__title" name="title" maxlength="64" required
+                   value="{{ state.editTitle[c.id] ?? c.title }}" {{ c.active ? '' : 'disabled' }}>
+            <label class="sr" for="words{{ c.id }}">Ключевые слова</label>
+            <input id="words{{ c.id }}" class="input catrow__words" name="keywords" placeholder="ключевые слова через запятую"
+                   value="{{ state.editWords[c.id] ?? c.keywords|join(', ') }}" {{ c.active ? '' : 'disabled' }}>
+        </div>
+        <div class="catrow__meta">
+            <span class="muted num" title="Трат в этой категории">{{ usage[c.id] ?? 0 }}</span>
+            {% if c.active %}<button class="button button--quiet" type="submit">Сохранить</button>{% endif %}
+            {% if not admin.isDefault(c) %}
+                <button class="link{{ c.active ? ' link--danger' }}" type="submit" formaction="{{ path('web_category_visibility', {id: c.id}) }}"
+                        name="active" value="{{ c.active ? '0' : '1' }}" formnovalidate>{{ c.active ? 'скрыть' : 'вернуть' }}</button>
+            {% else %}
+                <span class="tag" title="Сюда попадают траты без подходящей категории">по умолчанию</span>
+            {% endif %}
+        </div>
+        {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+    </form>
+{% endmacro %}
+
+{% block body %}
+    {% set state = {
+        editError: editError ?? {},
+        editTitle: editTitle ?? {},
+        editWords: editWords ?? {},
+        highlight: highlight ?? 0,
+    } %}
+    <div class="pagehead">
+        <h1>Категории</h1>
+        <p class="hint measure">Тип траты определяется по ключевым словам в строке: <code>17000 ашан</code> попадёт туда, где есть
+            слово «ашан». Слово от 4 букв совпадает и по началу: <code>доставк</code> найдёт «доставка» и «доставкой».</p>
+    </div>
+    {% if notice ?? null %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
+
+    <form class="block catadd" method="post" action="{{ path('web_category_add') }}">
+        <h2>Новая категория</h2>
+        <div class="catadd__row">
+            <div>
+                <label class="label" for="new-title">Название</label>
+                <input id="new-title" class="input" name="title" required maxlength="64" placeholder="Кафе"
+                       value="{{ addTitle ?? '' }}">
+            </div>
+            <div>
+                <label class="label" for="new-words">Ключевые слова</label>
+                <input id="new-words" class="input" name="keywords" placeholder="кафе, ресторан, кофе, бар"
+                       value="{{ addKeywords ?? '' }}">
+            </div>
+            <button class="button" type="submit">Добавить</button>
+        </div>
+        {% if addError ?? null %}<p class="error" role="alert">{{ addError }}</p>{% endif %}
+    </form>
+
+    <section class="block">
+        <div class="block__head"><h2>В работе</h2><span class="muted hint">справа — сколько трат</span></div>
+        {% for c in active %}{{ _self.row(c, usage, admin, state) }}{% endfor %}
+    </section>
+
+    {% if hidden is not empty %}
+        <section class="block">
+            <div class="block__head"><h2>Скрытые</h2><span class="muted hint">старые траты в них остались</span></div>
+            {% for c in hidden %}{{ _self.row(c, usage, admin, state) }}{% endfor %}
+        </section>
+    {% endif %}
+{% endblock %}

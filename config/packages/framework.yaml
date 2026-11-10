@@ -1,0 +1,19 @@
+framework:
+    secret: '%env(APP_SECRET)%'
+    session: false
+    trusted_hosts: ['%env(TRUSTED_HOSTS)%']
+
+    http_client:
+        scoped_clients:
+            telegram.http_client:
+                base_uri: 'https://api.telegram.org'
+                timeout: 10
+                max_duration: 40
+            cba.http_client:
+                base_uri: 'https://api.cba.am'
+                timeout: 15
+                max_duration: 30
+
+when@test:
+    framework:
+        test: true

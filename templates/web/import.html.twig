@@ -1,0 +1,135 @@
+{% extends 'web/base.html.twig' %}
+
+{% block title %}Импорт — Траты{% endblock %}
+
+{% block body %}
+    <div class="pagehead">
+        <h1>Импорт заметки</h1>
+        <p class="muted measure">Вставь старую заметку целиком или загрузи файл. Одна трата — одна строка, как в боте.
+            Строка, в которой только дата (<code>07.11</code>), задаёт дату для строк под ней. Перед записью покажу,
+            что распознал. Повторный импорт того же текста дублей не создаст.</p>
+    </div>
+
+    {% if result is defined %}
+        <p class="notice" role="status">Записано трат: {{ result.imported }}{% if result.duplicates > 0 %}, пропущено
+            уже импортированных: {{ result.duplicates }}{% endif %}{% if result.converted > 0 %}, пересчитано
+            по курсу ЦБ: {{ result.converted }}{% endif %}. <a href="{{ path('web_dashboard') }}">К обзору</a></p>
+    {% endif %}
+
+    {% if preview is not defined %}
+        <form class="block import-form" method="post" action="{{ path('web_import_preview') }}" enctype="multipart/form-data">
+            <label class="label" for="import-text">Текст заметки</label>
+            <textarea id="import-text" class="input textarea" name="text" rows="14"
+                      placeholder="07.11&#10;17000 продукты&#10;9700 доставка кари&#10;18,5 eur чатгпт 10.11&#10;-2500 руб от алисы">{{ text }}</textarea>
+            <label class="label" for="import-file">или файл (.txt, .md, до 1 МБ)</label>
+            <input id="import-file" class="input" type="file" name="file" accept=".txt,.md,.csv,text/plain">
+            <div class="grid2">
+                <div>
+                    <label class="label" for="import-payer">Кто платил, если в строке не сказано</label>
+                    <select id="import-payer" class="input" name="payer">
+                        {% for p in participants %}
+                            <option value="{{ p.id }}" {{ p.id == payerId ? 'selected' }}>{{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="label" for="import-date">Дата, если её нет ни в строке, ни выше</label>
+                    <input id="import-date" class="input" type="date" name="date" value="{{ date }}" max="{{ 'now'|date('Y-m-d') }}">
+                </div>
+            </div>
+            <fieldset class="signs">
+                <legend class="label">Что значит знак перед суммой</legend>
+                <label><input type="radio" name="sign_mode" value="refund" {{ signMode != 'payer' ? 'checked' }}>
+                    минус — возврат денег, плюс ничего не значит</label>
+                <label><input type="radio" name="sign_mode" value="payer" {{ signMode == 'payer' ? 'checked' }}>
+                    знак показывает, кто платил:</label>
+                <span class="signs__pair">
+                    <label for="plus-payer">+</label>
+                    <select id="plus-payer" class="input" name="plus_payer">
+                        {% for p in participants %}<option value="{{ p.id }}" {{ p.id == plusPayer ? 'selected' }}>{{ p.name }}</option>{% endfor %}
+                    </select>
+                    <label for="minus-payer">−</label>
+                    <select id="minus-payer" class="input" name="minus_payer">
+                        {% for p in participants %}<option value="{{ p.id }}" {{ p.id == minusPayer ? 'selected' }}>{{ p.name }}</option>{% endfor %}
+                    </select>
+                </span>
+                <p class="hint">Строки без знака запишутся на «Кто платил» выше. Имя в строке («от алисы») важнее знака.</p>
+            </fieldset>
+            {% if error is defined %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+            <button class="button" type="submit">Разобрать</button>
+        </form>
+    {% else %}
+        {% set rows = preview.expenses %}
+        <form method="post" action="{{ path('web_import_confirm') }}">
+            <input type="hidden" name="text" value="{{ text }}">
+            <input type="hidden" name="payer" value="{{ payerId }}">
+            <input type="hidden" name="date" value="{{ date }}">
+            <input type="hidden" name="sign_mode" value="{{ signMode }}">
+            <input type="hidden" name="plus_payer" value="{{ plusPayer }}">
+            <input type="hidden" name="minus_payer" value="{{ minusPayer }}">
+            <div class="block__head">
+                <h2>Распознано трат: <span class="num">{{ rows|length }}</span>{% if preview.transfers is not empty %}, переводов:
+                    <span class="num">{{ preview.transfers|length }}</span>{% endif %}</h2>
+                {% if preview.errorCount > 0 %}<span class="warn">не разобрано строк: {{ preview.errorCount }}</span>{% endif %}
+            </div>
+            <table class="ledger">
+                <thead>
+                <tr>
+                    <th scope="col"><span class="sr">Записать</span></th>
+                    <th scope="col">Строка</th>
+                    <th scope="col">Дата</th>
+                    <th scope="col">Категория</th>
+                    <th scope="col">Платил</th>
+                    <th scope="col" class="r">Сумма</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for row in preview.rows %}
+                    {% if row.kind.value == 'expense' %}
+                        <tr>
+                            <td><input type="checkbox" name="lines[]" value="{{ row.lineNumber }}" checked
+                                       aria-label="Записать строку {{ row.lineNumber }}"></td>
+                            <td><span class="muted num">{{ row.lineNumber }}</span> {{ row.text }}</td>
+                            <td class="num">{{ row.date|date('d.m.Y') }}</td>
+                            <td>{{ row.categoryTitle }}{% if row.expense.categoryAmbiguous %} <span class="tag">неоднозначно</span>{% endif %}</td>
+                            <td>
+                                <select class="select-bare" name="line_payer[{{ row.lineNumber }}]" aria-label="Кто платил">
+                                    {% for p in participants %}
+                                        <option value="{{ p.id }}" {{ p.id == row.payerId ? 'selected' }}>{{ p.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td class="r num">{{ row.expense.amount|money }}</td>
+                        </tr>
+                    {% elseif row.kind.value == 'transfer' %}
+                        {% set tr = row.transfer %}
+                        <tr>
+                            <td><input type="checkbox" name="lines[]" value="{{ row.lineNumber }}" checked
+                                       aria-label="Записать строку {{ row.lineNumber }}"></td>
+                            <td><span class="muted num">{{ row.lineNumber }}</span> {{ row.text }}</td>
+                            <td class="num">{{ row.date|date('d.m.Y') }}</td>
+                            <td><span class="tag">{{ tr.betweenParticipants ? 'перевод между вами' : 'перевод другому' }}</span></td>
+                            <td>{{ tr.from.name }} → {{ tr.recipientName }}</td>
+                            <td class="r num">{{ tr.amount|money }}</td>
+                        </tr>
+                    {% elseif row.kind.value == 'date' %}
+                        <tr class="row-date"><td></td><td colspan="5"><span class="muted num">{{ row.lineNumber }}</span> дата {{ row.date|date('d.m.Y') }}</td></tr>
+                    {% elseif row.kind.value == 'comment' %}
+                        <tr class="row-date"><td></td><td colspan="5"><span class="num">{{ row.lineNumber }}</span> {{ row.text }} — без суммы, пропускаю</td></tr>
+                    {% elseif row.kind.value == 'error' %}
+                        <tr class="row-error">
+                            <td></td>
+                            <td colspan="5"><span class="muted num">{{ row.lineNumber }}</span> {{ row.text }}
+                                <span class="error">{{ row.error }}</span></td>
+                        </tr>
+                    {% endif %}
+                {% endfor %}
+                </tbody>
+            </table>
+            <p class="actions">
+                {% if preview.records is not empty %}<button class="button" type="submit">Записать отмеченные</button>{% endif %}
+                <a class="button button--quiet" href="{{ path('web_import') }}">Начать заново</a>
+            </p>
+        </form>
+    {% endif %}
+{% endblock %}

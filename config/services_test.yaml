@@ -1,0 +1,14 @@
+services:
+    _defaults:
+        autowire: true
+        public: true
+
+    App\Tests\Support\RecordingTelegramClient: ~
+    App\Bot\Telegram\TelegramClient: '@App\Tests\Support\RecordingTelegramClient'
+
+    Psr\Clock\ClockInterface:
+        class: Symfony\Component\Clock\MockClock
+        arguments: ['2026-11-10 12:00:00', 'Asia/Yerevan']
+
+    App\Tests\Support\StaticRateSource: ~
+    App\Application\Rates\RateSource: '@App\Tests\Support\StaticRateSource'
