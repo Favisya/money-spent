@@ -166,6 +166,19 @@ final readonly class ExpenseRepository
         );
     }
 
+    /**
+     * Removes a soft-deleted row with this uuid for good, so the same source line can be recorded again.
+     */
+    public function purgeDeletedByUuid(string $uuid): void
+    {
+        $this->connection->createQueryBuilder()
+            ->delete('expense')
+            ->where('uuid = :uuid')
+            ->andWhere('deleted_at IS NOT NULL')
+            ->setParameter('uuid', $uuid)
+            ->executeStatement();
+    }
+
     public function existsByUuid(string $uuid): bool
     {
         return $this->connection->createQueryBuilder()

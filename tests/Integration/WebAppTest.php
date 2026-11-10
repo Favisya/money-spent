@@ -579,6 +579,31 @@ final class WebAppTest extends KernelTestCase
         self::assertSame('green', $this->db->fetchOne('SELECT color FROM participant WHERE id = ?', [$this->boris]));
     }
 
+    public function testDeletedEntriesCanBeImportedAgain(): void
+    {
+        $this->people();
+        $form = [
+            'text'  => "11000 драм свет 09.11\n-5000 борис скинул 08.11\n17000 продукты 09.11",
+            'payer' => $this->anna,
+            'date'  => '2026-11-10',
+            'lines' => [1, 2, 3],
+        ];
+
+        $this->post('/import/confirm', $form);
+        $light    = (int) $this->db->fetchOne("SELECT id FROM expense WHERE note = 'свет'");
+        $transfer = (int) $this->db->fetchOne('SELECT id FROM settlement');
+        $this->post('/expenses/' . $light . '/delete', ['back' => '2026-11']);
+        $this->post('/settlements/' . $transfer . '/delete', ['back' => '2026-11']);
+
+        $again = (string) $this->post('/import/confirm', $form)->getContent();
+        self::assertMatchesRegularExpression('/Записано трат: 2, пропущено\s+уже импортированных: 1/u', $again);
+        self::assertSame(2, (int) $this->db->fetchOne('SELECT COUNT(*) FROM expense WHERE deleted_at IS NULL'));
+        self::assertSame(0, (int) $this->db->fetchOne('SELECT COUNT(*) FROM expense WHERE deleted_at IS NOT NULL'));
+        self::assertSame(1, (int) $this->db->fetchOne('SELECT COUNT(*) FROM settlement WHERE deleted_at IS NULL'));
+        $note = $this->db->fetchOne("SELECT note FROM expense WHERE spent_at = '2026-11-09' AND amount_minor = 11000");
+        self::assertSame('свет', $note);
+    }
+
     private function people(): void
     {
         $participants = self::getContainer()->get(ParticipantRepository::class);

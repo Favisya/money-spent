@@ -23,7 +23,7 @@ use Symfony\Component\Uid\Uuid;
 
 /**
  * Turns a free-form note (one expense per line, optional "10.11" day headers) into expenses.
- * Importing the same note twice does not duplicate anything.
+ * Importing the same note twice does not duplicate anything; a line whose expense was deleted is recorded again.
  */
 final readonly class NoteImporter
 {
@@ -135,6 +135,9 @@ final readonly class NoteImporter
             if ($expense !== null && array_key_exists($row->lineNumber, $noteByLine)) {
                 $expense = $expense->withNote(NoteText::clean($noteByLine[$row->lineNumber]));
             }
+
+            $this->expenses->purgeDeletedByUuid($uuid);
+            $this->settlements->purgeDeletedByUuid($uuid);
 
             if ($this->expenses->existsByUuid($uuid) || $this->settlements->existsByUuid($uuid)) {
                 ++$duplicates;
