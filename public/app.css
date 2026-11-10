@@ -99,7 +99,7 @@ code {
 .brand { color: var(--ink); text-decoration: none; font-weight: 700; letter-spacing: -0.02em; }
 .brand__dot { color: var(--accent); padding: 0 0.15em; }
 .brand__sub { color: var(--muted); font-weight: 500; }
-.nav { display: flex; gap: 0.25rem; }
+.nav { display: flex; flex-wrap: wrap; gap: 0.25rem; min-width: 0; }
 .nav a {
     color: var(--muted);
     text-decoration: none;
@@ -716,4 +716,45 @@ form.block .button--quiet { margin-top: 0.85rem; }
     padding: 0.5rem 0.65rem;
     overflow-x: auto;
     white-space: pre;
+}
+
+/* expenses: when the main column is too narrow for one line, each row folds into two */
+.layout__main { container-type: inline-size; }
+@container (max-width: 760px) {
+    .ledger--expenses thead { display: none; }
+    .ledger--expenses tr {
+        display: grid;
+        grid-template-columns: 3.4rem auto minmax(0, 1fr) auto auto;
+        grid-template-areas:
+            "date cat   cat   amount amount"
+            ".    payer whose base   actions";
+        column-gap: 0.75rem;
+        row-gap: 0.15rem;
+        align-items: center;
+        padding: 0.55rem 0.25rem;
+        border-bottom: 1px solid var(--line);
+    }
+    .ledger--expenses tr:last-child { border-bottom: 0; }
+    .ledger--expenses tr.is-new { background: var(--accent-soft); }
+    .ledger--expenses td,
+    .ledger--expenses tr.is-new td { border: 0; padding: 0; background: none; }
+    .ledger--expenses td:nth-child(1) { grid-area: date; align-self: start; padding-top: 0.2rem; }
+    .ledger--expenses td:nth-child(2) { grid-area: cat; }
+    .ledger--expenses td:nth-child(3) { grid-area: payer; }
+    .ledger--expenses td:nth-child(4) { grid-area: whose; }
+    .ledger--expenses td:nth-child(5) { grid-area: amount; align-self: start; }
+    .ledger--expenses td:nth-child(6) { grid-area: base; }
+    .ledger--expenses td:nth-child(7) { grid-area: actions; }
+}
+@container (max-width: 480px) {
+    .ledger--expenses tr {
+        grid-template-columns: auto auto minmax(0, 1fr) auto;
+        grid-template-areas:
+            "date   cat    cat    cat"
+            "amount amount amount base"
+            "payer  whose  whose  actions";
+        column-gap: 0.5rem;
+    }
+    .ledger--expenses td:nth-child(1),
+    .ledger--expenses td:nth-child(5) { align-self: center; padding-top: 0; text-align: left; }
 }
