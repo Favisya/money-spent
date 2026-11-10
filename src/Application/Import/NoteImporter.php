@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Import;
 
 use App\Application\Expense\ExpenseRecorder;
+use App\Application\Expense\NoteText;
 use App\Application\Parsing\ParseErrorMessages;
 use App\Application\Parsing\ParserFactory;
 use App\Application\Participant\Participant;
@@ -101,14 +102,20 @@ final readonly class NoteImporter
 
     /**
      * @param list<int>       $selectedLines line numbers to import
-     * @param array<int, int> $payerByLine   line number => participant id chosen in the preview
+     * @param array<int, int>    $payerByLine   line number => participant id chosen in the preview
+     * @param array<int, string> $noteByLine    line number => "what for" as edited in the preview
      */
-    public function import(ImportPreview $preview, array $selectedLines, array $payerByLine): ImportResult
-    {
+    public function import(
+        ImportPreview $preview,
+        array $selectedLines,
+        array $payerByLine,
+        array $noteByLine = [],
+    ): ImportResult {
         $selected    = array_flip($selectedLines);
         $occurrences = [];
         $imported    = 0;
         $duplicates  = 0;
+        $filled      = 0;
 
         foreach ($preview->records() as $row) {
             $key               = mb_strtolower(trim($row->text));
@@ -123,23 +130,55 @@ final readonly class NoteImporter
                 sprintf('import:%s:%d', sha1($key), $occurrences[$key]),
             )->toRfc4122();
 
+            $expense = $row->expense;
+
+            if ($expense !== null && array_key_exists($row->lineNumber, $noteByLine)) {
+                $expense = $expense->withNote(NoteText::clean($noteByLine[$row->lineNumber]));
+            }
+
             if ($this->expenses->existsByUuid($uuid) || $this->settlements->existsByUuid($uuid)) {
                 ++$duplicates;
+                $filled += $expense === null ? 0 : $this->fillMissingNote($uuid, $expense->note);
 
                 continue;
             }
 
             if ($row->transfer !== null) {
                 $this->transferRecorder->record($row->transfer, $uuid);
-            } elseif ($row->expense !== null) {
+            } elseif ($expense !== null) {
                 $payer = $this->payer($payerByLine[$row->lineNumber] ?? $row->payerId ?? 0);
-                $this->recorder->record($payer, $row->expense, $uuid);
+                $this->recorder->record($payer, $expense, $uuid);
             }
 
             ++$imported;
         }
 
-        return new ImportResult($imported, $duplicates);
+        return new ImportResult($imported, $duplicates, notesFilled: $filled);
+    }
+
+    /**
+     * Importing the same note again adds the "what for" comment to expenses that were imported without one.
+     *
+     * @return int 1 when a note was written
+     */
+    private function fillMissingNote(string $uuid, ?string $note): int
+    {
+        $id   = $this->expenses->findIdByUuid($uuid);
+        $view = $id === null ? null : $this->expenses->findView($id);
+
+        if ($view === null || $view->deleted || $view->note !== null) {
+            return 0;
+        }
+
+        $note = NoteText::besides($note, $view->categoryTitle);
+
+        if ($note === null) {
+            return 0;
+        }
+
+        $this->expenses->updateNote($view->id, $note);
+
+        return 1;
     }
 
     /**
@@ -207,12 +246,15 @@ final readonly class NoteImporter
             $payerId = $payerId ?? $signs->payerFor($sign);
         }
 
+        $title  = $titles[$codes[0]] ?? $codes[0];
+        $parsed = $parsed->withNote(NoteText::besides($parsed->note, $title));
+
         return new ImportRow(
             $lineNumber,
             $line,
             ImportRowKind::Expense,
             $parsed,
-            $titles[$codes[0]] ?? $codes[0],
+            $title,
             $payerId,
             $parsed->spentAt,
         );

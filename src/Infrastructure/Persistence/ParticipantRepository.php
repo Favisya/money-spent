@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Persistence;
 
 use App\Application\Participant\Participant;
+use App\Application\Participant\ParticipantColor;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
 use UnexpectedValueException;
@@ -30,7 +31,7 @@ final readonly class ParticipantRepository
                 INSERT INTO participant (telegram_id, name)
                 VALUES (:telegram_id, :name)
                 ON CONFLICT (telegram_id) DO UPDATE SET telegram_id = EXCLUDED.telegram_id
-                RETURNING id, telegram_id, name
+                RETURNING id, telegram_id, name, color
                 SQL,
             [
                 'telegram_id' => $telegramId,
@@ -53,14 +54,16 @@ final readonly class ParticipantRepository
             ?? throw new UnexpectedValueException('Created participant is missing.');
     }
 
-    public function update(int $id, string $name, ?int $telegramId): void
+    public function update(int $id, string $name, ?int $telegramId, ?ParticipantColor $color = null): void
     {
         $this->connection->createQueryBuilder()
             ->update('participant')
             ->set('name', ':name')
             ->set('telegram_id', ':telegram_id')
+            ->set('color', ':color')
             ->where('id = :id')
             ->setParameter('name', $name)
+            ->setParameter('color', $color?->value)
             ->setParameter(
                 'telegram_id',
                 $telegramId,
@@ -73,7 +76,7 @@ final readonly class ParticipantRepository
     public function find(int $id): ?Participant
     {
         $row = $this->connection->createQueryBuilder()
-            ->select('id', 'telegram_id', 'name')
+            ->select('id', 'telegram_id', 'name', 'color')
             ->from('participant')
             ->where('id = :id')
             ->setParameter('id', $id, ParameterType::INTEGER)
@@ -104,7 +107,7 @@ final readonly class ParticipantRepository
     public function all(): array
     {
         $rows = $this->connection->createQueryBuilder()
-            ->select('id', 'telegram_id', 'name')
+            ->select('id', 'telegram_id', 'name', 'color')
             ->from('participant')
             ->orderBy('id')
             ->executeQuery()
@@ -122,6 +125,7 @@ final readonly class ParticipantRepository
             Row::int($row, 'id'),
             Row::nullableInt($row, 'telegram_id'),
             Row::string($row, 'name'),
+            ParticipantColor::tryFrom((string) Row::nullableString($row, 'color')),
         );
     }
 }

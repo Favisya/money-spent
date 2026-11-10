@@ -2,11 +2,25 @@
 
 {% block title %}Участники — Траты{% endblock %}
 
+{% macro colors(name, colors, selected) %}
+    <fieldset class="colors">
+        <legend class="label">Цвет значка</legend>
+        {% for c in colors %}
+            <label class="colors__item" title="{{ c.label }}">
+                <input type="radio" name="color" value="{{ c.value }}" {{ c.value == selected ? 'checked' }}>
+                <span class="avatar avatar--lg" style="--av: var(--pc-{{ c.value }})">{{ name ? name|slice(0, 1)|upper : '?' }}</span>
+                <span class="sr">{{ c.label }}</span>
+            </label>
+        {% endfor %}
+    </fieldset>
+{% endmacro %}
+
 {% block body %}
     <div class="pagehead">
         <h1>Участники</h1>
         <p class="muted measure">Учёт рассчитан на двоих. Telegram id нужен, только если пользуетесь ботом: тогда записи
-            из бота и отсюда попадут к одному и тому же человеку. Свой id подскажет @userinfobot.</p>
+            из бота и отсюда попадут к одному и тому же человеку. Свой id подскажет @userinfobot.
+            Цвет значка помогает быстро видеть, кто сколько заплатил: им же окрашены личные траты на графиках.</p>
     </div>
 
     {% if saved ?? false %}<p class="notice" role="status">Сохранено.</p>{% endif %}
@@ -14,10 +28,12 @@
     <div class="people">
         {% for p in participants %}
             <form class="block person" method="post" action="{{ path('web_participant_update', {id: p.id}) }}">
+                <h2 class="pname">{{ avatar(p.id, p.name) }}{{ p.name }}</h2>
                 <label class="label" for="name-{{ p.id }}">Имя</label>
                 <input id="name-{{ p.id }}" class="input" name="name" value="{{ p.name }}" required maxlength="64">
                 <label class="label" for="tg-{{ p.id }}">Telegram id</label>
                 <input id="tg-{{ p.id }}" class="input num" name="telegram_id" value="{{ p.telegramId }}" inputmode="numeric" placeholder="необязательно">
+                {{ _self.colors(p.name, colors, colorOf[p.id]) }}
                 {% if error is defined and errorFor == p.id %}<p class="error" role="alert">{{ error }}</p>{% endif %}
                 <button class="button button--quiet" type="submit">Сохранить</button>
             </form>
@@ -30,6 +46,7 @@
                 <input id="name-new" class="input" name="name" required maxlength="64" autofocus>
                 <label class="label" for="tg-new">Telegram id</label>
                 <input id="tg-new" class="input num" name="telegram_id" inputmode="numeric" placeholder="необязательно">
+                {{ _self.colors('', colors, newColor) }}
                 {% if error is defined and errorFor == 'new' %}<p class="error" role="alert">{{ error }}</p>{% endif %}
                 <button class="button" type="submit">Добавить</button>
             </form>

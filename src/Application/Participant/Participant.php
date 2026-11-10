@@ -10,6 +10,7 @@ final readonly class Participant
         public int $id,
         public ?int $telegramId,
         public string $name,
+        public ?ParticipantColor $color = null,
     ) {
     }
 }

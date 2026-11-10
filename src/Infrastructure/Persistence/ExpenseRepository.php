@@ -268,6 +268,19 @@ final readonly class ExpenseRepository
         return is_string($first) ? substr($first, 0, 7) : null;
     }
 
+    public function findIdByUuid(string $uuid): ?int
+    {
+        $id = $this->connection->createQueryBuilder()
+            ->select('id')
+            ->from('expense')
+            ->where('uuid = :uuid')
+            ->setParameter('uuid', $uuid)
+            ->executeQuery()
+            ->fetchOne();
+
+        return $id === false ? null : Row::int(['id' => $id], 'id');
+    }
+
     private function idByUuid(string $uuid): int
     {
         $id = $this->connection->createQueryBuilder()

@@ -131,13 +131,13 @@
                                                placeholder="+ заметка" aria-label="Заметка к трате"
                                                onchange="this.form.requestSubmit()">
                                     </form>                                </td>
-                                <td>{{ e.payerName }}</td>
+                                <td><span class="pname">{{ avatar(e.payerId, e.payerName) }}{{ e.payerName }}</span></td>
                                 <td>
                                     {% set owner = d.ownerOf(e) %}
                                     <form method="post" action="{{ path('web_expense_split', {id: e.id}) }}" class="inline owner-tag">
                                         <input type="hidden" name="back" value="{{ d.period.key }}">
                                         {% if d.filter %}<input type="hidden" name="who" value="{{ d.filter.key }}">{% endif %}
-                                        <i class="swatch" style="background: var(--owner-{{ min(owner.slot, 3) }})"></i>
+                                        <i class="swatch" style="background: {{ owner_color(owner) }}"></i>
                                         <select class="select-bare split-owner" name="split" aria-label="Чья трата" onchange="this.form.requestSubmit()">
                                             <option value="equal" {{ e.split.value == 'equal' ? 'selected' }}>общая</option>
                                             {% for p in d.participants %}
@@ -194,7 +194,7 @@
                         {% for s in d.settlements %}
                             <tr>
                                 <td class="num muted">{{ s.settledAt|date('d.m') }}</td>
-                                <td>{{ s.fromName }} → {{ s.toName }}{% if s.note %} <span class="note">{{ s.note }}</span>{% endif %}</td>
+                                <td><span class="pname">{{ avatar(s.fromId, s.fromName) }}{{ s.fromName }}</span> → <span class="pname">{{ avatar(s.toId, s.toName) }}{{ s.toName }}</span>{% if s.note %} <span class="note">{{ s.note }}</span>{% endif %}</td>
                                 <td class="r num">{{ s.amount|money }}</td>
                                 <td class="r">
                                     <form method="post" action="{{ path('web_settlement_delete', {id: s.id}) }}" class="inline"
@@ -221,14 +221,14 @@
                     <div class="mini-split" role="img" aria-label="Общие и личные траты">
                         {% for o in d.owners.owners %}
                             {% set v = d.owners.ownerTotals[o.key] ?? 0 %}
-                            {% if v > 0 %}<span style="flex-grow: {{ v }}; background: var(--owner-{{ min(o.slot, 3) }})" data-tip="{{ o.isShared ? 'Общие' : o.label ~ ' лично' }}: {{ v|shown }}"></span>{% endif %}
+                            {% if v > 0 %}<span style="flex-grow: {{ v }}; background: {{ owner_color(o) }}" data-tip="{{ o.isShared ? 'Общие' : o.label ~ ' лично' }}: {{ v|shown }}"></span>{% endif %}
                         {% endfor %}
                     </div>
                     <table class="figures">
                         <tbody>
                         {% for o in d.owners.owners %}
                             <tr>
-                                <th scope="row"><a class="owner-tag" href="{{ path('web_dashboard', {m: d.period.key, who: o.key}) }}"><i class="swatch" style="background: var(--owner-{{ min(o.slot, 3) }})"></i>{{ o.isShared ? 'Общие' : o.label ~ ' лично' }}</a></th>
+                                <th scope="row"><a class="owner-tag" href="{{ path('web_dashboard', {m: d.period.key, who: o.key}) }}">{% if o.isShared %}<i class="swatch" style="background: {{ owner_color(o) }}"></i>{% else %}{{ avatar(o.participantId, o.label) }}{% endif %}{{ o.isShared ? 'Общие' : o.label ~ ' лично' }}</a></th>
                                 <td class="r num">{{ (d.owners.ownerTotals[o.key] ?? 0)|shown_number }}</td>
                             </tr>
                         {% endfor %}
@@ -253,7 +253,7 @@
                         <tbody>
                         {% for t in report.participants %}
                             <tr>
-                                <th scope="row">{{ t.participant.name }}</th>
+                                <th scope="row"><span class="pname">{{ avatar(t.participant.id, t.participant.name) }}{{ t.participant.name }}</span></th>
                                 <td class="r num">{{ t.paid|shown_number }}</td>
                                 <td class="r num">{{ t.share|shown_number }}</td>
                             </tr>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Web\Twig;
 
+use App\Application\Analytics\Owner;
 use App\Application\Reference\CurrencyCatalog;
 use App\Application\Report\MonthPeriod;
 use App\Bot\View\MoneyFormatter;
@@ -12,6 +13,7 @@ use App\Domain\Money\Currency;
 use App\Domain\Money\Money;
 use App\Domain\Split\SplitType;
 use App\Web\Currency\DisplayCurrency;
+use App\Web\People\PeoplePalette;
 use Twig\Attribute\AsTwigFilter;
 use Twig\Attribute\AsTwigFunction;
 
@@ -37,6 +39,7 @@ final readonly class AppExtension
         private MonthNames $months,
         private CurrencyCatalog $currencies,
         private DisplayCurrency $display,
+        private PeoplePalette $people,
     ) {
     }
 
@@ -89,6 +92,33 @@ final readonly class AppExtension
     public function displayChoices(): array
     {
         return $this->display->choices();
+    }
+
+    /**
+     * A round badge with the participant's first letter in their color.
+     */
+    #[AsTwigFunction('avatar', isSafe: ['html'])]
+    public function avatar(int $participantId, string $name): string
+    {
+        $letter = mb_strtoupper(mb_substr(trim($name), 0, 1));
+
+        return sprintf(
+            '<span class="avatar" style="--av: %s" aria-hidden="true">%s</span>',
+            $this->people->cssVar($participantId),
+            htmlspecialchars($letter === '' ? '?' : $letter, ENT_QUOTES | ENT_HTML5),
+        );
+    }
+
+    #[AsTwigFunction('person_color')]
+    public function personColor(int $participantId): string
+    {
+        return $this->people->cssVar($participantId);
+    }
+
+    #[AsTwigFunction('owner_color')]
+    public function ownerColor(Owner $owner): string
+    {
+        return $this->people->ownerCss($owner);
     }
 
     #[AsTwigFilter('rate')]

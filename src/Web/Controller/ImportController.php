@@ -92,8 +92,17 @@ final class ImportController extends AbstractController
                 $preview,
                 array_map('intval', array_values($request->request->all('lines'))),
                 array_map('intval', $request->request->all('line_payer')),
+                array_map(
+                    static fn (mixed $note): string => mb_substr(is_string($note) ? $note : '', 0, 300),
+                    $request->request->all('line_note'),
+                ),
             );
-            $result = new ImportResult($result->imported, $result->duplicates, $this->rates->run());
+            $result = new ImportResult(
+                $result->imported,
+                $result->duplicates,
+                $this->rates->run(),
+                $result->notesFilled,
+            );
         } catch (UserError $exception) {
             return $this->render('web/import.html.twig', [
                 'participants' => $this->participants->all(),

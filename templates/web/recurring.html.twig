@@ -64,7 +64,7 @@
                         <td class="num">{{ r.dayOfMonth }}</td>
                         <td>{{ r.categoryTitle }}{% if r.note %} <span class="note">{{ r.note }}</span>{% endif %}
                             {% if r.split.value != 'equal' %}<span class="tag">{{ r.split|split_label }}</span>{% endif %}</td>
-                        <td>{{ r.payerName }}</td>
+                        <td><span class="pname">{{ avatar(r.payerId, r.payerName) }}{{ r.payerName }}</span></td>
                         <td class="r num">{{ r.amount|money }}</td>
                         <td class="num muted">{{ r.active ? r.nextDate|date('d.m.Y') : 'на паузе' }}</td>
                         <td class="r actions-cell">

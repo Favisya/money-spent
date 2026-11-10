@@ -614,3 +614,55 @@ main > section.block { margin-bottom: 1rem; }
 .note-edit__input::placeholder { color: var(--faint); opacity: 0.7; }
 tr:hover .note-edit__input::placeholder, .note-edit__input:focus::placeholder { opacity: 1; }
 .note-edit__input:hover, .note-edit__input:focus { border-bottom-color: var(--faint); color: var(--ink); outline: none; }
+.note-edit__input--wide { width: 100%; min-width: 7rem; }
+
+/* people: badge colors (same steps as the chart palette, validated for light and dark) */
+:root {
+    --pc-orange: #eb6834;
+    --pc-violet: #6250d6;
+    --pc-blue: #2a78d6;
+    --pc-aqua: #1baf7a;
+    --pc-yellow: #eda100;
+    --pc-magenta: #e87ba4;
+    --pc-green: #008300;
+    --pc-red: #e34948;
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --pc-orange: #d95926;
+        --pc-violet: #9085e9;
+        --pc-blue: #3987e5;
+        --pc-aqua: #199e70;
+        --pc-yellow: #c98500;
+        --pc-magenta: #d55181;
+        --pc-green: #008300;
+        --pc-red: #e66767;
+    }
+}
+.pname { display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+.avatar {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 1.45rem;
+    height: 1.45rem;
+    border-radius: 50%;
+    border: 2px solid var(--av, var(--faint));
+    background: color-mix(in srgb, var(--av, var(--faint)) 18%, var(--surface));
+    color: var(--ink);
+    font: 700 0.72rem/1 var(--sans);
+}
+.avatar--lg { width: 1.85rem; height: 1.85rem; font-size: 0.85rem; }
+.owner-tag .avatar, .owners__name .avatar { margin-right: 0.4rem; width: 1.25rem; height: 1.25rem; font-size: 0.65rem; }
+.debt__sentence .avatar { width: 1.6rem; height: 1.6rem; font-size: 0.8rem; vertical-align: -0.2em; }
+h2.pname { margin-bottom: 0.25rem; }
+.colors { display: flex; flex-wrap: wrap; gap: 0.3rem; border: 0; padding: 0; margin: 0.75rem 0 0; }
+.colors legend { padding: 0; margin-bottom: 0.35rem; }
+.colors__item { cursor: pointer; position: relative; }
+.colors__item input { position: absolute; opacity: 0; pointer-events: none; }
+.colors__item .avatar { transition: transform 0.12s; }
+.colors__item input:checked + .avatar { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); }
+.colors__item input:focus-visible + .avatar { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) {
+    .colors__item:hover .avatar { transform: scale(1.08); }
+}

@@ -10,6 +10,7 @@ final readonly class ImportResult
         public int $imported,
         public int $duplicates,
         public int $converted = 0,
+        public int $notesFilled = 0,
     ) {
     }
 }

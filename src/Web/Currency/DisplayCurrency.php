@@ -12,12 +12,13 @@ use App\Domain\Money\ExchangeRateProvider;
 use App\Domain\Money\Money;
 use App\Domain\Money\RateNotFoundException;
 use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * The currency the viewer wants base (AMD) amounts shown in. Uses the latest known CBA rate; amounts recorded in their
  * own currency are never touched, only totals and converted columns.
  */
-final class DisplayCurrency
+final class DisplayCurrency implements ResetInterface
 {
     public const string COOKIE = 'display_currency';
 
@@ -30,6 +31,11 @@ final class DisplayCurrency
         private readonly ExchangeRateProvider $provider,
         private readonly LocalCalendar $calendar,
     ) {
+    }
+
+    public function reset(): void
+    {
+        $this->rates = [];
     }
 
     /**

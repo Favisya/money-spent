@@ -5,12 +5,13 @@
             {% if line.settled %}
                 Никто никому не должен
             {% else %}
-                <strong>{{ line.debtor.name }}</strong> должен(на) <strong>{{ line.creditor.name }}</strong>
+                <span class="pname">{{ avatar(line.debtor.id, line.debtor.name) }}<strong>{{ line.debtor.name }}</strong></span> должен(на)
+                <span class="pname">{{ avatar(line.creditor.id, line.creditor.name) }}<strong>{{ line.creditor.name }}</strong></span>
                 <span class="num">{{ line.amount|shown }}</span>
             {% endif %}
         </p>
         <div class="debt__track">
-            <span class="debt__name">{{ line.left.name }}</span>
+            <span class="debt__name pname">{{ avatar(line.left.id, line.left.name) }}{{ line.left.name }}</span>
             <span class="debt__rail">
                 <span class="debt__half debt__half--left">
                     {% if not line.settled and line.creditorIsLeft %}<span class="debt__fill" style="width: {{ line.percent }}%"></span>{% endif %}
@@ -20,7 +21,7 @@
                     {% if not line.settled and not line.creditorIsLeft %}<span class="debt__fill" style="width: {{ line.percent }}%"></span>{% endif %}
                 </span>
             </span>
-            <span class="debt__name">{{ line.right.name }}</span>
+            <span class="debt__name pname">{{ line.right.name }}{{ avatar(line.right.id, line.right.name) }}</span>
         </div>
         {% if pending > 0 %}
             <p class="hint">Записей без курса пока не учтено: {{ pending }}.</p>

@@ -14,11 +14,11 @@ use App\Web\Chart\DonutLayout;
 use App\Web\Chart\DonutSegment;
 use App\Web\Chart\SankeyChart;
 use App\Web\Chart\SankeyLayout;
+use App\Web\People\PeoplePalette;
 use DateTimeImmutable;
 
 final readonly class AnalyticsViewBuilder
 {
-    private const int OWNER_COLORS    = 4;
     private const int CATEGORY_COLORS = 8;
     private const int CALENDAR_MONTHS = 12;
     private const int HEAT_LEVELS     = 4;
@@ -35,6 +35,7 @@ final readonly class AnalyticsViewBuilder
         private SankeyLayout $sankey,
         private ChordLayout $chord,
         private DonutLayout $donut,
+        private PeoplePalette $people,
     ) {
     }
 
@@ -44,7 +45,7 @@ final readonly class AnalyticsViewBuilder
         $categoryColors = [];
 
         foreach ($analysis->owners as $owner) {
-            $ownerColors[$owner->key] = sprintf('var(--owner-%d)', min($owner->slot, self::OWNER_COLORS - 1));
+            $ownerColors[$owner->key] = $this->people->ownerCss($owner);
         }
 
         foreach (array_values($analysis->categories) as $index => $category) {
@@ -86,7 +87,7 @@ final readonly class AnalyticsViewBuilder
             $owners[] = new ChartNode('o:' . $owner->key, $owner->label, $ownerColors[$owner->key]);
 
             if ($owner->participantId !== null) {
-                $payers[] = new ChartNode('p:' . $owner->participantId, $owner->label, 'var(--muted)');
+                $payers[] = new ChartNode('p:' . $owner->participantId, $owner->label, $ownerColors[$owner->key]);
             }
         }
 

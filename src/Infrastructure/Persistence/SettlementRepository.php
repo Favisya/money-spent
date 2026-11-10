@@ -28,6 +28,8 @@ final readonly class SettlementRepository
         $rows = $this->connection->createQueryBuilder()
             ->select(
                 's.id',
+                's.from_id',
+                's.to_id',
                 'f.name AS from_name',
                 't.name AS to_name',
                 's.amount_minor',
@@ -60,6 +62,8 @@ final readonly class SettlementRepository
                 $baseMinor === null ? null : Money::ofMinor($baseMinor, $this->currencies->base()),
                 Row::date($row, 'settled_at'),
                 Row::nullableString($row, 'note'),
+                Row::int($row, 'from_id'),
+                Row::int($row, 'to_id'),
             );
         }, $rows);
     }

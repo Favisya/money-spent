@@ -18,9 +18,16 @@ final readonly class ParticipantAdmin
 
     /**
      * @param string $telegramId digits or empty
+     * @param string $color      a ParticipantColor value or empty to keep the default
      */
-    public function save(?int $id, string $name, string $telegramId): Participant
+    public function save(?int $id, string $name, string $telegramId, string $color = ''): Participant
     {
+        $picked = $color === '' ? null : ParticipantColor::tryFrom($color);
+
+        if ($color !== '' && $picked === null) {
+            throw new UserError('Такого цвета нет.');
+        }
+
         $name       = trim(preg_replace('/\s+/u', ' ', $name) ?? '');
         $telegramId = trim($telegramId);
 
@@ -39,15 +46,21 @@ final readonly class ParticipantAdmin
         }
 
         if ($id === null) {
-            return $this->participants->create($name, $telegram);
+            $created = $this->participants->create($name, $telegram);
+
+            if ($picked !== null) {
+                $this->participants->update($created->id, $name, $telegram, $picked);
+            }
+
+            return $this->participants->find($created->id) ?? $created;
         }
 
         if ($this->participants->find($id) === null) {
             throw new UserError('Участник не найден.');
         }
 
-        $this->participants->update($id, $name, $telegram);
+        $this->participants->update($id, $name, $telegram, $picked);
 
-        return new Participant($id, $telegram, $name);
+        return new Participant($id, $telegram, $name, $picked);
     }
 }

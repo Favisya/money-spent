@@ -17,6 +17,8 @@ final readonly class SettlementView
         public ?Money $amountBase,
         public DateTimeImmutable $settledAt,
         public ?string $note,
+        public int $fromId = 0,
+        public int $toId = 0,
     ) {
     }
 }

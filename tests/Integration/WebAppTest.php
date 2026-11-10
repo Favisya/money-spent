@@ -499,8 +499,11 @@ final class WebAppTest extends KernelTestCase
             '/Распознано трат: <span class="num">1<\/span>, переводов:\s+<span class="num">2/u',
             $preview,
         );
-        self::assertStringContainsString('Борис → Анна', $preview);
-        self::assertStringContainsString('Анна → маме', $preview);
+        self::assertMatchesRegularExpression(
+            '/Борис<\/span> → <span class="pname"><span class="avatar"[^>]*>А<\/span>Анна/u',
+            $preview,
+        );
+        self::assertStringContainsString('Анна</span> → маме', $preview);
 
         $this->post('/import/confirm', $form + ['lines' => [1, 2, 3]]);
         self::assertSame(
@@ -511,6 +514,69 @@ final class WebAppTest extends KernelTestCase
 
         $again = (string) $this->post('/import/confirm', $form + ['lines' => [1, 2, 3]])->getContent();
         self::assertMatchesRegularExpression('/Записано трат: 0, пропущено\s+уже импортированных: 3/u', $again);
+    }
+
+    public function testImportNotesCanBeEditedAndFilledLater(): void
+    {
+        $this->people();
+        $form = [
+            'text'  => "11000 драм свет 09.11\n17000 продукты 09.11\n4540 газ 09.11",
+            'payer' => $this->anna,
+            'date'  => '2026-11-10',
+        ];
+
+        $preview = (string) $this->post('/import', $form)->getContent();
+        self::assertStringContainsString('name="line_note[1]" maxlength="255"', $preview);
+        self::assertMatchesRegularExpression('/line_note\[1\][^>]*value="свет"/u', $preview);
+        self::assertMatchesRegularExpression('/line_note\[2\][^>]*value=""/u', $preview);
+
+        $this->post('/import/confirm', $form + [
+            'lines'     => [1, 2, 3],
+            'line_note' => [1 => '', 3 => ' газ  за октябрь '],
+        ]);
+        self::assertSame(
+            [null, null, 'газ за октябрь'],
+            $this->db->fetchFirstColumn('SELECT note FROM expense ORDER BY id'),
+        );
+
+        $again = (string) $this->post('/import/confirm', $form + ['lines' => [1, 2, 3]])->getContent();
+        self::assertMatchesRegularExpression('/дописано заметок «на что»:\s+1/u', $again);
+        self::assertSame(
+            ['свет', null, 'газ за октябрь'],
+            $this->db->fetchFirstColumn('SELECT note FROM expense ORDER BY id'),
+        );
+    }
+
+    public function testParticipantColorsShowEverywhere(): void
+    {
+        $this->people();
+        $this->post('/expenses', ['text' => '17000 продукты', 'payer' => $this->boris, 'whose' => 'payer_only']);
+
+        $page = (string) $this->get('/?m=2026-11')->getContent();
+        self::assertStringContainsString('style="--av: var(--pc-violet)" aria-hidden="true">Б</span>', $page);
+
+        $saved = $this->post('/participants/' . $this->boris, [
+            'name'        => 'Борис',
+            'telegram_id' => '',
+            'color'       => 'green',
+        ]);
+        self::assertSame(302, $saved->getStatusCode());
+        self::assertSame('green', $this->db->fetchOne('SELECT color FROM participant WHERE id = ?', [$this->boris]));
+
+        $recolored = (string) $this->get('/?m=2026-11')->getContent();
+        self::assertStringContainsString('var(--pc-green)" aria-hidden="true">Б</span>', $recolored);
+        self::assertStringContainsString('var(--pc-green)', (string) $this->get('/analytics?n=1')->getContent());
+        $people = (string) $this->get('/participants')->getContent();
+        self::assertMatchesRegularExpression('/value="green" checked/', $people);
+
+        $bad = $this->post('/participants/' . $this->boris, [
+            'name'        => 'Борис',
+            'telegram_id' => '',
+            'color'       => 'url(x)',
+        ]);
+        self::assertSame(422, $bad->getStatusCode());
+        self::assertStringContainsString('Такого цвета нет', (string) $bad->getContent());
+        self::assertSame('green', $this->db->fetchOne('SELECT color FROM participant WHERE id = ?', [$this->boris]));
     }
 
     private function people(): void

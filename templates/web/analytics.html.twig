@@ -53,7 +53,7 @@
                 {% set v = a.ownerTotals[o.key] ?? 0 %}
                 <a class="owners__item" href="{{ path('web_analytics', periodQuery|merge({who: o.key})) }}"
                    {{ a.filter and a.filter.key == o.key ? 'aria-current="true"' }}>
-                    <span class="owners__name"><i class="swatch" style="background: {{ view.ownerColor(o.key) }}"></i>{{ o.isShared ? 'Общие' : o.label ~ ' лично' }}</span>
+                    <span class="owners__name">{% if o.isShared %}<i class="swatch" style="background: {{ view.ownerColor(o.key) }}"></i>{% else %}{{ avatar(o.participantId, o.label) }}{% endif %}{{ o.isShared ? 'Общие' : o.label ~ ' лично' }}</span>
                     <span class="owners__sum num">{{ v|shown }}</span>
                     <span class="owners__pct num muted">{{ a.share(v, a.ownersTotal) }}%</span>
                 </a>
