@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Application\Expense;
 
 /**
- * The short "what for" comment of an expense ("свет", "газ"): trimmed, collapsed, dropped when it only repeats the
- * category title.
+ * The short "what for" comment of an expense ("свет", "газ"): trimmed, collapsed, without words that only repeat
+ * the category title ("продукты ашан" in «Продукты» is "ашан").
  */
 final class NoteText
 {
@@ -20,7 +20,13 @@ final class NoteText
             return null;
         }
 
-        return self::normalize($note) === self::normalize($categoryTitle) ? null : $note;
+        $title = self::normalize($categoryTitle);
+        $words = array_filter(
+            explode(' ', $note),
+            static fn (string $word): bool => self::normalize($word) !== $title,
+        );
+
+        return self::normalize($note) === $title || $words === [] ? null : implode(' ', $words);
     }
 
     public static function clean(?string $note): ?string

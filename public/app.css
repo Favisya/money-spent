@@ -675,3 +675,16 @@ h2.pname { margin-bottom: 0.25rem; }
 @media (max-width: 640px) {
     .ratesbar__inner { justify-content: flex-start; }
 }
+
+/* sharing and pairing */
+.pair { max-width: 420px; margin: 12vh auto 3rem; }
+.pair h1 { margin-bottom: 0.5rem; }
+.pair .block { margin-top: 1.25rem; }
+.pair .button { margin-top: 1rem; width: 100%; }
+.pair__code { font: 600 1.6rem var(--mono); letter-spacing: 0.15em; text-align: center; }
+.plain { list-style: none; padding: 0; margin: 0.4rem 0; }
+.sharing-code { margin: 1rem 0; }
+.sharing-code__value { font: 700 2.4rem/1.1 var(--mono); letter-spacing: 0.12em; color: var(--accent); margin: 0.25rem 0; }
+.sharing-code__form { display: grid; grid-template-columns: minmax(0, 18rem) auto; justify-content: start; gap: 0.5rem 0.75rem; align-items: end; }
+.sharing-code__form .label { grid-column: 1 / -1; }
+form.block .button--quiet { margin-top: 0.85rem; }

@@ -1,0 +1,77 @@
+{% extends 'web/base.html.twig' %}
+
+{% block title %}Доступ — Траты{% endblock %}
+
+{% block body %}
+    <div class="pagehead">
+        <h1>Общий доступ</h1>
+        <p class="hint measure">Второй человек ставит «Траты» на свой Mac, выбирает «Подключиться к другому Mac» и вводит
+            код отсюда. Работает в одной сети, пока это приложение открыто. Новые траты друг друга приходят уведомлениями.</p>
+    </div>
+
+    <div class="grid2">
+        <section class="block">
+            <h2>Адрес</h2>
+            {% if urls is empty %}
+                <p>Сейчас доступ закрыт: приложение открыто только на этом Mac.</p>
+                <p class="hint">Включи в меню <strong>Траты → Разрешить подключение</strong>. macOS может спросить, разрешить ли
+                    входящие подключения, — разреши.</p>
+            {% else %}
+                <p>Открыто для домашней сети:</p>
+                <ul class="plain">{% for url in urls %}<li><code>{{ url }}</code></li>{% endfor %}</ul>
+                <p class="hint">Подключение не шифруется — включай в домашней сети, а не в кафе.</p>
+            {% endif %}
+        </section>
+
+        <form class="block" method="post" action="{{ path('web_sharing_me') }}">
+            <h2>Это я на этом Mac</h2>
+            <p class="hint">Уведомления приходят о тратах и переводах остальных.</p>
+            <select class="input" name="participant" aria-label="Кто ты на этом Mac">
+                {% for p in participants %}<option value="{{ p.id }}" {{ p.id == meId ? 'selected' }}>{{ p.name }}</option>{% endfor %}
+            </select>
+            <button class="button button--quiet" type="submit">Сохранить</button>
+        </form>
+    </div>
+
+    <section class="block sharing-code">
+        <h2>Код для подключения</h2>
+        {% if code %}
+            {% set who = participants|filter(p => p.id == codeFor)|first %}
+            <p class="sharing-code__value num" aria-live="polite">{{ code|slice(0, 3) }} {{ code|slice(3) }}</p>
+            <p class="hint">Для {{ who ? who.name : 'участника' }}. Действует 10 минут, один раз. Новый код отменяет этот.</p>
+        {% endif %}
+        <form method="post" action="{{ path('web_sharing_code') }}" class="sharing-code__form">
+            <label class="label" for="code-for">Кто будет подключаться</label>
+            <select id="code-for" class="input" name="participant">
+                {% for p in participants %}<option value="{{ p.id }}" {{ p.id != meId ? 'selected' }}>{{ p.name }}</option>{% endfor %}
+            </select>
+            <button class="button" type="submit">Показать код</button>
+        </form>
+        {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+    </section>
+
+    <section class="block">
+        <div class="block__head"><h2>Подключённые Mac</h2><span class="muted num">{{ devices|length }}</span></div>
+        {% if devices is empty %}
+            <p class="hint">Пока никого.</p>
+        {% else %}
+            <table class="ledger">
+                <tbody>
+                {% for device in devices %}
+                    <tr>
+                        <td>{{ device.name }}</td>
+                        <td><span class="pname">{{ avatar(device.participantId, device.participantName) }}{{ device.participantName }}</span></td>
+                        <td class="muted num">{{ device.lastSeenAt ? 'был ' ~ device.lastSeenAt|date('d.m H:i') : 'ещё не заходил' }}</td>
+                        <td class="r">
+                            <form method="post" action="{{ path('web_sharing_revoke', {id: device.id}) }}" class="inline"
+                                  onsubmit="return confirm('Отключить этот Mac? Чтобы вернуться, понадобится новый код.')">
+                                <button class="link link--danger" type="submit">отключить</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </section>
+{% endblock %}

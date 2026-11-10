@@ -89,6 +89,28 @@ final readonly class ExpenseRepository
         return array_map($this->hydrateView(...), $rows);
     }
 
+    /**
+     * Active expenses recorded after the moment, oldest first.
+     *
+     * @return list<ExpenseView>
+     */
+    public function createdBetween(DateTimeImmutable $after, DateTimeImmutable $until, int $limit): array
+    {
+        $rows = $this->viewQuery()
+            ->where('e.deleted_at IS NULL')
+            ->andWhere('e.created_at > :after')
+            ->andWhere('e.created_at <= :until')
+            ->orderBy('e.created_at')
+            ->addOrderBy('e.id')
+            ->setMaxResults($limit)
+            ->setParameter('after', $after->format('Y-m-d H:i:s.uP'))
+            ->setParameter('until', $until->format('Y-m-d H:i:s.uP'))
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        return array_map($this->hydrateView(...), $rows);
+    }
+
     public function updateNote(int $id, ?string $note): void
     {
         $this->connection->createQueryBuilder()

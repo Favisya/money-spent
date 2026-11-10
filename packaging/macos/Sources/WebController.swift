@@ -3,11 +3,17 @@ import UniformTypeIdentifiers
 import WebKit
 
 /// The app window content: the local web app in a WKWebView, with native dialogs, uploads and downloads.
-final class WebController: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDelegate {
+final class WebController: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDelegate, WKScriptMessageHandler {
     let webView: WKWebView
     private var allowedHost = "127.0.0.1"
     private var allowedPort: Int?
 
+    /// A new entry by someone else, posted by app.js from the loaded app page.
+    var onNotify: ((_ id: String, _ title: String, _ body: String) -> Void)?
+    /// A button on one of the built-in pages (chooser, offline): ["action": "local" | "connect" | "retry", "url": ...].
+    var onAction: (([String: String]) -> Void)?
+    /// The app page could not be loaded (the other Mac is off or sharing is disabled there).
+    var onLoadFailed: ((URL) -> Void)?
     var view: NSView { webView }
 
     override init() {
@@ -15,18 +21,91 @@ final class WebController: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownl
         configuration.websiteDataStore = .default()
         webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()
+        let proxy = WeakMessageHandler(self)
+        configuration.userContentController.add(proxy, name: "notify")
+        configuration.userContentController.add(proxy, name: "app")
         webView.navigationDelegate = self
         webView.uiDelegate = self
         webView.allowsBackForwardNavigationGestures = true
     }
 
     func open(_ url: URL) {
+        allowedHost = url.host ?? "127.0.0.1"
         allowedPort = url.port
         webView.load(URLRequest(url: url))
     }
 
     func showStatus(_ text: String) {
         webView.loadHTMLString(Self.page(body: "<div class=\"dot\"></div><p>\(Self.escape(text))</p>"), baseURL: nil)
+    }
+
+    /// First launch without local data: keep the books on this Mac or join the one running on another Mac.
+    func showChooser(found: [Bonjour.Found], note: String? = nil) {
+        let list = found.isEmpty
+            ? "<p class=\"muted\">Ищу Mac с включённым доступом в этой сети…</p>"
+            : found.map { item in
+                "<button class=\"choice\" data-url=\"\(Self.escape(item.url.absoluteString))\">\(Self.escape(item.name))"
+                    + "<span>\(Self.escape(item.url.host ?? ""))</span></button>"
+            }.joined()
+        let body = """
+        <h1>Как вести учёт?</h1>
+        \(note.map { "<p class=\"warn\">\(Self.escape($0))</p>" } ?? "")
+        <button class="primary" data-action="local">Здесь, на этом Mac</button>
+        <h2>или подключиться к другому Mac</h2>
+        <div class="list">\(list)</div>
+        <form id="manual"><input id="address" placeholder="адрес, например http://dima-mac.local:8765" autocomplete="off">
+        <button type="submit">Подключиться</button></form>
+        <p class="muted">На том Mac: Траты → Разрешить подключение, затем Доступ → «Показать код».</p>
+        <script>
+        const post = (m) => window.webkit.messageHandlers.app.postMessage(m);
+        document.querySelectorAll('[data-action]').forEach((b) => b.onclick = () => post({action: b.dataset.action}));
+        document.querySelectorAll('[data-url]').forEach((b) => b.onclick = () => post({action: 'connect', url: b.dataset.url}));
+        document.getElementById('manual').onsubmit = (e) => {
+            e.preventDefault();
+            post({action: 'connect', url: document.getElementById('address').value.trim()});
+        };
+        </script>
+        """
+        webView.loadHTMLString(Self.page(body: body, script: true), baseURL: nil)
+    }
+
+    func showOffline(_ url: URL) {
+        let body = """
+        <h1>\(Self.escape(url.host ?? "Тот Mac")) не отвечает</h1>
+        <p class="muted">Проверь, что там открыты Траты и включено «Разрешить подключение», и что вы в одной сети.</p>
+        <button class="primary" data-action="retry">Попробовать снова</button>
+        <button data-action="choose">Выбрать другой Mac</button>
+        <script>
+        document.querySelectorAll('[data-action]').forEach((b) =>
+            b.onclick = () => window.webkit.messageHandlers.app.postMessage({action: b.dataset.action}));
+        </script>
+        """
+        webView.loadHTMLString(Self.page(body: body, script: true), baseURL: nil)
+    }
+
+    // MARK: - Messages from pages
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard let payload = message.body as? [String: Any], message.frameInfo.isMainFrame else { return }
+
+        let strings = payload.compactMapValues { $0 as? String }
+        let scheme = message.frameInfo.request.url?.scheme ?? ""
+        let origin = message.frameInfo.securityOrigin
+
+        switch message.name {
+        case "notify" where scheme == "http" && origin.host == allowedHost
+            && (allowedPort == nil || origin.port == allowedPort):
+            onNotify?(strings["id"] ?? "", strings["title"] ?? "", strings["body"] ?? "")
+        case "app" where scheme != "http" && scheme != "https":
+            onAction?(strings)
+        default:
+            break
+        }
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        let failed = (error as NSError).userInfo[NSURLErrorFailingURLErrorKey] as? URL
+        if let failed, failed.scheme == "http" { onLoadFailed?(failed) }
     }
 
     func showError(_ text: String, logs: String) {
@@ -195,10 +274,11 @@ final class WebController: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownl
             .replacingOccurrences(of: "\"", with: "&quot;")
     }
 
-    private static func page(body: String) -> String {
-        """
+    private static func page(body: String, script: Bool = false) -> String {
+        let scripts = script ? "; script-src 'unsafe-inline'" : ""
+        return """
         <!doctype html><html lang="ru"><head><meta charset="utf-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'\(scripts)">
         <style>
         :root { color-scheme: light dark; --ink: #1c1c1f; --muted: #63636b; --accent: #0f766e; --bg: #f6f6f4; }
         @media (prefers-color-scheme: dark) { :root { --ink: #ececee; --muted: #a0a0a8; --accent: #3fb8a9; --bg: #121214; } }
@@ -210,7 +290,29 @@ final class WebController: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownl
                animation: pulse 1s ease-in-out infinite alternate; }
         @keyframes pulse { from { opacity: 0.25; } to { opacity: 1; } }
         @media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
+        h2 { font-size: 0.95rem; font-weight: 600; margin: 1.6rem 0 0.6rem; color: var(--muted); }
+        button { font: inherit; padding: 0.6rem 1rem; border-radius: 6px; border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
+                 background: transparent; color: var(--ink); cursor: pointer; margin: 0.25rem; }
+        button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+        .list { display: grid; gap: 0.4rem; justify-items: center; }
+        .choice { min-width: 18rem; display: grid; } .choice span { font-size: 0.8rem; color: var(--muted); }
+        input { font: inherit; padding: 0.55rem 0.7rem; border-radius: 6px; width: 20rem; max-width: 70vw;
+                border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent); background: transparent; color: var(--ink); }
+        form { margin-top: 1rem; } .warn { color: #b3261e; }
         </style></head><body>\(body)</body></html>
         """
+    }
+}
+
+/// WKUserContentController keeps its handlers strongly; this breaks the cycle with the controller.
+private final class WeakMessageHandler: NSObject, WKScriptMessageHandler {
+    private weak var target: WKScriptMessageHandler?
+
+    init(_ target: WKScriptMessageHandler) {
+        self.target = target
+    }
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        target?.userContentController(controller, didReceive: message)
     }
 }

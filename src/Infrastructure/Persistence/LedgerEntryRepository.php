@@ -26,6 +26,14 @@ final readonly class LedgerEntryRepository
     }
 
     /**
+     * The database clock, which also stamps created_at, so event cursors never drift from it.
+     */
+    public function now(): DateTimeImmutable
+    {
+        return new DateTimeImmutable((string) $this->connection->fetchOne('SELECT now()'));
+    }
+
+    /**
      * @return list<LedgerEntry>
      */
     public function findPendingRates(LedgerTable $table): array

@@ -28,6 +28,12 @@
     <true/>
     <key>NSSupportsAutomaticTermination</key>
     <false/>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>Чтобы вести общий учёт с другим Mac в домашней сети.</string>
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_moneyspent._tcp</string>
+    </array>
     <key>NSAppTransportSecurity</key>
     <dict>
         <key>NSAllowsLocalNetworking</key>

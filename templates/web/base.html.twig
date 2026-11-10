@@ -9,6 +9,7 @@
     <script src="/app.js" defer></script>
 </head>
 <body>
+{% block header %}
 <header class="topbar">
     <div class="wrap topbar__inner">
         <a class="brand" href="{{ path('web_dashboard') }}">Траты<span class="brand__dot">·</span><span class="brand__sub">на двоих</span></a>
@@ -19,6 +20,9 @@
             <a href="{{ path('web_recurring') }}" {{ route starts with 'web_recurring' ? 'aria-current="page"' }}>Регулярные</a>
             <a href="{{ path('web_import') }}" {{ route starts with 'web_import' ? 'aria-current="page"' }}>Импорт</a>
             <a href="{{ path('web_categories') }}" {{ route starts with 'web_categor' ? 'aria-current="page"' }}>Категории</a>
+            {% if not app.request.attributes.has('_device') %}
+                <a href="{{ path('web_sharing') }}" {{ route starts with 'web_sharing' ? 'aria-current="page"' }}>Доступ</a>
+            {% endif %}
             <a href="{{ path('web_participants') }}" {{ route starts with 'web_participant' ? 'aria-current="page"' }}>Участники</a>
         </nav>
         <form class="currency" method="post" action="{{ path('web_display_currency') }}" aria-label="Валюта показа">
@@ -55,6 +59,7 @@
         </div>
     </div>
 </header>
+{% endblock %}
 <main class="wrap">
     {% block body %}{% endblock %}
 </main>

@@ -10,6 +10,7 @@ services:
             string $defaultCategoryCode: '%app.default_category%'
             string $timezone: '%app.timezone%'
             string $webhookSecret: '%env(TELEGRAM_WEBHOOK_SECRET)%'
+            string $appSecret: '%kernel.secret%'
 
     App\:
         resource: '../src/'

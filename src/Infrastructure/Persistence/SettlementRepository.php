@@ -11,6 +11,7 @@ use App\Domain\Balance\LedgerSettlement;
 use App\Domain\Money\Money;
 use DateTimeImmutable;
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Query\QueryBuilder;
 
 final readonly class SettlementRepository
 {
@@ -25,7 +26,41 @@ final readonly class SettlementRepository
      */
     public function findViews(DateTimeImmutable $from, DateTimeImmutable $to): array
     {
-        $rows = $this->connection->createQueryBuilder()
+        $rows = $this->viewQuery()
+            ->andWhere('s.settled_at >= :from')
+            ->andWhere('s.settled_at < :to')
+            ->orderBy('s.settled_at', 'DESC')
+            ->addOrderBy('s.id', 'DESC')
+            ->setParameter('from', $from->format('Y-m-d'))
+            ->setParameter('to', $to->format('Y-m-d'))
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        return array_map($this->hydrateView(...), $rows);
+    }
+
+    /**
+     * @return list<SettlementView> active settlements recorded after the moment, oldest first
+     */
+    public function createdBetween(DateTimeImmutable $after, DateTimeImmutable $until, int $limit): array
+    {
+        $rows = $this->viewQuery()
+            ->andWhere('s.created_at > :after')
+            ->andWhere('s.created_at <= :until')
+            ->orderBy('s.created_at')
+            ->addOrderBy('s.id')
+            ->setMaxResults($limit)
+            ->setParameter('after', $after->format('Y-m-d H:i:s.uP'))
+            ->setParameter('until', $until->format('Y-m-d H:i:s.uP'))
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        return array_map($this->hydrateView(...), $rows);
+    }
+
+    private function viewQuery(): QueryBuilder
+    {
+        return $this->connection->createQueryBuilder()
             ->select(
                 's.id',
                 's.from_id',
@@ -41,31 +76,27 @@ final readonly class SettlementRepository
             ->from('settlement', 's')
             ->innerJoin('s', 'participant', 'f', 'f.id = s.from_id')
             ->innerJoin('s', 'participant', 't', 't.id = s.to_id')
-            ->where('s.deleted_at IS NULL')
-            ->andWhere('s.settled_at >= :from')
-            ->andWhere('s.settled_at < :to')
-            ->orderBy('s.settled_at', 'DESC')
-            ->addOrderBy('s.id', 'DESC')
-            ->setParameter('from', $from->format('Y-m-d'))
-            ->setParameter('to', $to->format('Y-m-d'))
-            ->executeQuery()
-            ->fetchAllAssociative();
+            ->where('s.deleted_at IS NULL');
+    }
 
-        return array_map(function (array $row): SettlementView {
-            $baseMinor = Row::nullableInt($row, 'amount_base_minor');
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function hydrateView(array $row): SettlementView
+    {
+        $baseMinor = Row::nullableInt($row, 'amount_base_minor');
 
-            return new SettlementView(
-                Row::int($row, 'id'),
-                Row::string($row, 'from_name'),
-                Row::string($row, 'to_name'),
-                Money::ofMinor(Row::int($row, 'amount_minor'), $this->currencies->get(Row::string($row, 'currency'))),
-                $baseMinor === null ? null : Money::ofMinor($baseMinor, $this->currencies->base()),
-                Row::date($row, 'settled_at'),
-                Row::nullableString($row, 'note'),
-                Row::int($row, 'from_id'),
-                Row::int($row, 'to_id'),
-            );
-        }, $rows);
+        return new SettlementView(
+            Row::int($row, 'id'),
+            Row::string($row, 'from_name'),
+            Row::string($row, 'to_name'),
+            Money::ofMinor(Row::int($row, 'amount_minor'), $this->currencies->get(Row::string($row, 'currency'))),
+            $baseMinor === null ? null : Money::ofMinor($baseMinor, $this->currencies->base()),
+            Row::date($row, 'settled_at'),
+            Row::nullableString($row, 'note'),
+            Row::int($row, 'from_id'),
+            Row::int($row, 'to_id'),
+        );
     }
 
     /**

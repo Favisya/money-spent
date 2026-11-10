@@ -1,4 +1,5 @@
 import Foundation
+import SystemConfiguration
 
 /// Starts and stops the bundled PostgreSQL, the PHP web server and the scheduler worker.
 final class Runtime {
@@ -22,6 +23,10 @@ final class Runtime {
     private var stopping = false
     private var secrets: Secrets!
     private(set) var webPort: Int = 0
+    /// Whether other Macs on the network may connect; the web server then listens on all interfaces.
+    private(set) var sharing = false
+    private(set) var sharingURLs: [String] = []
+    static let preferredPort = 8765
     private var dbPort: Int = 0
 
     var onStatus: ((String) -> Void)?
@@ -34,6 +39,8 @@ final class Runtime {
     }
 
     var dataDirectory: URL { support }
+    var hasLocalData: Bool { fileManager.fileExists(atPath: pgData.appendingPathComponent("PG_VERSION").path) }
+    private(set) var isRunning = false
     var baseURL: URL { URL(string: "http://127.0.0.1:\(webPort)")! }
 
     private var runtimeDir: URL { resources.appendingPathComponent("runtime", isDirectory: true) }
@@ -48,11 +55,14 @@ final class Runtime {
 
     // MARK: - Lifecycle
 
-    func start() throws {
+    func start(sharing: Bool) throws {
+        stopping = false
+        self.sharing = sharing
         try prepareDirectories()
         secrets = try Secrets.load(from: support.appendingPathComponent("secrets.json"))
         dbPort = try Runtime.freePort()
-        webPort = try Runtime.freePort()
+        webPort = Runtime.isFree(Runtime.preferredPort) ? Runtime.preferredPort : try Runtime.freePort()
+        sharingURLs = sharing ? Runtime.lanURLs(port: webPort) : []
 
         status("Готовлю базу данных…")
         try initDatabaseIfNeeded()
@@ -66,10 +76,23 @@ final class Runtime {
         startWorker()
         fetchRatesInBackground()
         try waitForServer()
+        isRunning = true
+    }
+
+    /// Re-binds the web server: loopback only, or all interfaces for other Macs. Data and worker keep running.
+    func setSharing(_ enabled: Bool) throws {
+        sharing = enabled
+        sharingURLs = enabled ? Runtime.lanURLs(port: webPort) : []
+        server?.terminate()
+        server?.waitUntilExit()
+        try startServer()
+        try waitForServer()
     }
 
     func stop() {
         stopping = true
+        isRunning = false
+        guard hasLocalData else { return }
         worker?.terminate()
         server?.terminate()
         worker?.waitUntilExit()
@@ -151,7 +174,7 @@ final class Runtime {
 
     private func startServer() throws {
         let process = makeProcess(php, phpArguments() + [
-            "-S", "127.0.0.1:\(webPort)",
+            "-S", "\(sharing ? "0.0.0.0" : "127.0.0.1"):\(webPort)",
             "-t", appDir.appendingPathComponent("public").path,
             runtimeDir.appendingPathComponent("router.php").path,
         ], log: "server")
@@ -239,7 +262,8 @@ final class Runtime {
             "APP_LOG_DIR": logs.path,
             "DATABASE_URL": "postgresql://app:\(secrets.databasePassword)@127.0.0.1:\(dbPort)/app?serverVersion=16&charset=utf8",
             "DEFAULT_URI": "http://127.0.0.1:\(webPort)",
-            "TRUSTED_HOSTS": "^(localhost|127\\.0\\.0\\.1)$",
+            "TRUSTED_HOSTS": sharing ? Runtime.lanHostsPattern : "^(localhost|127\\.0\\.0\\.1)$",
+            "SHARING_URLS": sharingURLs.joined(separator: ","),
             "LOCK_DSN": "flock",
         ]
     }
@@ -297,6 +321,55 @@ final class Runtime {
 
     private func status(_ text: String) {
         DispatchQueue.main.async { self.onStatus?(text) }
+    }
+
+    /// Hosts other Macs on the home network can use: the Bonjour name and private IPv4 ranges.
+    static let lanHostsPattern =
+        "^(localhost|127\\.0\\.0\\.1|[A-Za-z0-9-]+\\.local|192\\.168\\.\\d{1,3}\\.\\d{1,3}|10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}"
+        + "|172\\.(1[6-9]|2\\d|3[01])\\.\\d{1,3}\\.\\d{1,3})$"
+
+    static func lanURLs(port: Int) -> [String] {
+        var urls: [String] = []
+
+        if let name = SCDynamicStoreCopyLocalHostName(nil) as String? {
+            urls.append("http://\(name).local:\(port)")
+        }
+
+        var interfaces: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&interfaces) == 0, let first = interfaces else { return urls }
+        defer { freeifaddrs(interfaces) }
+
+        for pointer in sequence(first: first, next: { $0.pointee.ifa_next }) {
+            let flags = Int32(pointer.pointee.ifa_flags)
+            guard let address = pointer.pointee.ifa_addr, address.pointee.sa_family == UInt8(AF_INET),
+                  flags & IFF_UP != 0, flags & IFF_LOOPBACK == 0 else { continue }
+
+            var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+            if getnameinfo(address, socklen_t(address.pointee.sa_len), &host, socklen_t(host.count), nil, 0, NI_NUMERICHOST) == 0 {
+                let ip = String(cString: host)
+                if ip.range(of: lanHostsPattern, options: .regularExpression) != nil {
+                    urls.append("http://\(ip):\(port)")
+                }
+            }
+        }
+
+        return Array(NSOrderedSet(array: urls)) as? [String] ?? urls
+    }
+
+    static func isFree(_ port: Int) -> Bool {
+        let socketFD = socket(AF_INET, SOCK_STREAM, 0)
+        guard socketFD >= 0 else { return false }
+        defer { close(socketFD) }
+
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_port = UInt16(port).bigEndian
+        address.sin_addr.s_addr = INADDR_ANY
+
+        return withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(socketFD, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) }
+        } == 0
     }
 
     static func freePort() throws -> Int {

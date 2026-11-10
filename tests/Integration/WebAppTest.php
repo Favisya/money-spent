@@ -35,7 +35,8 @@ final class WebAppTest extends KernelTestCase
         $this->db  = self::getContainer()->get(Connection::class);
 
         $this->db->executeStatement(
-            'TRUNCATE telegram_update, settlement, expense, exchange_rate, market_rate, participant, category '
+            'TRUNCATE telegram_update, settlement, expense, exchange_rate, market_rate, device, pairing_code, '
+            . 'participant, category '
             . 'RESTART IDENTITY CASCADE',
         );
         (new CommandTester((new Application($this->app))->find('app:seed')))->execute([]);
@@ -359,7 +360,7 @@ final class WebAppTest extends KernelTestCase
 
         self::assertSame(
             [
-                ['2026-11-05', 'Анна', 9700, 'AMD', 'delivery', 'доставка кари'],
+                ['2026-11-05', 'Анна', 9700, 'AMD', 'delivery', 'кари'],
                 ['2026-11-05', 'Анна', 17000, 'AMD', 'groceries', null],
                 ['2026-11-10', 'Борис', 100000, 'RUB', 'other', 'на майн'],
                 ['2026-11-06', 'Анна', 5000, 'AMD', 'other', null],
@@ -644,6 +645,104 @@ final class WebAppTest extends KernelTestCase
         $text = (string) preg_replace('/\s+/u', ' ', strip_tags((string) $response->getContent()));
 
         return str_replace("\u{00A0}", ' ', $text);
+    }
+
+    public function testAnotherMacConnectsWithACode(): void
+    {
+        $this->people();
+        $remote  = ['REMOTE_ADDR' => '192.168.1.20'];
+        $posting = $remote + ['HTTP_ORIGIN' => self::ORIGIN];
+
+        self::assertSame('/pair', $this->get('/', $remote)->headers->get('Location'));
+        $blocked = $this->post('/expenses', ['text' => '100', 'payer' => $this->anna], $posting);
+        self::assertSame(401, $blocked->getStatusCode());
+        self::assertSame(200, $this->get('/pair', $remote)->getStatusCode());
+        self::assertSame(0, (int) $this->db->fetchOne('SELECT COUNT(*) FROM expense'));
+
+        $code = $this->pairingCode($this->boris);
+
+        $wrong = $this->post('/pair', ['code' => '000000', 'name' => 'Mac'], $posting);
+        self::assertSame(422, $wrong->getStatusCode());
+        self::assertStringContainsString('Код не подходит', (string) $wrong->getContent());
+
+        $typed  = substr($code, 0, 3) . ' ' . substr($code, 3);
+        $paired = $this->post('/pair', ['code' => $typed, 'name' => 'Mac Бориса'], $posting);
+        self::assertSame('/', $paired->headers->get('Location'));
+        $cookie = $paired->headers->getCookies()[0];
+        self::assertSame('device', $cookie->getName());
+        self::assertTrue($cookie->isHttpOnly());
+        self::assertMatchesRegularExpression('/^[0-9a-f]{64}$/', (string) $cookie->getValue());
+        self::assertNotSame($cookie->getValue(), $this->db->fetchOne('SELECT token_hash FROM device'));
+
+        $token = ['device' => (string) $cookie->getValue()];
+        self::assertSame(200, $this->get('/', $remote, $token)->getStatusCode());
+        self::assertSame(403, $this->get('/sharing', $remote, $token)->getStatusCode());
+        self::assertStringNotContainsString('>Доступ</a>', (string) $this->get('/', $remote, $token)->getContent());
+
+        $reuse = $this->post('/pair', ['code' => $code, 'name' => 'Ещё'], $posting);
+        self::assertStringContainsString('Кода нет или он истёк', (string) $reuse->getContent());
+
+        $guessed = $this->pairingCode($this->boris);
+
+        for ($i = 0; $i < 5; ++$i) {
+            $this->post('/pair', ['code' => '99999' . $i, 'name' => 'Mac'], $posting);
+        }
+
+        $late = $this->post('/pair', ['code' => $guessed, 'name' => 'Mac'], $posting);
+        self::assertStringContainsString('Кода нет или он истёк', (string) $late->getContent());
+
+        $device = (int) $this->db->fetchOne('SELECT id FROM device');
+        $this->post('/sharing/devices/' . $device . '/revoke', []);
+        self::assertSame('/pair', $this->get('/', $remote, $token)->headers->get('Location'));
+    }
+
+    public function testEventsForNotifications(): void
+    {
+        $this->people();
+
+        $first = $this->events('');
+        self::assertSame([], $first['events']);
+
+        $this->post('/expenses', ['text' => '17000 продукты ашан', 'payer' => $this->boris]);
+        $this->post('/expenses', ['text' => '500 кофе', 'payer' => $this->anna]);
+        $this->post('/settlements', ['from' => $this->boris, 'amount' => '2000']);
+
+        $next = $this->events($first['cursor']);
+        self::assertSame(
+            [
+                ['title' => "Борис: 17\u{00A0}000 AMD", 'body' => 'Продукты · ашан'],
+                ['title' => "Борис перевод(ит) 2\u{00A0}000 AMD", 'body' => '→ Анна'],
+            ],
+            array_map(
+                static fn (array $event): array => ['title' => $event['title'], 'body' => $event['body']],
+                $next['events'],
+            ),
+        );
+        self::assertSame([], $this->events($next['cursor'])['events']);
+    }
+
+    private function pairingCode(int $participantId): string
+    {
+        $page = (string) $this->post('/sharing/code', ['participant' => $participantId])->getContent();
+        if (preg_match('/aria-live="polite">(\d{3}) (\d{3})</', $page, $match) !== 1) {
+            self::fail('No pairing code on the page.');
+        }
+
+        return $match[1] . $match[2];
+    }
+
+    /**
+     * @return array{cursor: string, events: list<array{id: string, title: string, body: string}>}
+     */
+    private function events(string $since): array
+    {
+        $response = $this->get('/api/events?since=' . rawurlencode($since));
+        self::assertSame('application/json', $response->headers->get('Content-Type'));
+
+        /** @var array{cursor: string, events: list<array{id: string, title: string, body: string}>} $data */
+        $data = json_decode((string) $response->getContent(), true, flags: JSON_THROW_ON_ERROR);
+
+        return $data;
     }
 
     private function people(): void

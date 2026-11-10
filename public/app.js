@@ -60,3 +60,57 @@
         });
     });
 })();
+
+(() => {
+    'use strict';
+
+    // Inside the macOS app: ask the server for new entries by others and hand them to native notifications.
+    const bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.notify;
+
+    if (!bridge) {
+        return;
+    }
+
+    const key = 'events-cursor';
+    const every = 30000;
+    const read = () => {
+        try {
+            return window.localStorage.getItem(key) || '';
+        } catch (error) {
+            return '';
+        }
+    };
+    const write = (value) => {
+        try {
+            window.localStorage.setItem(key, value);
+        } catch (error) {
+            // Storage can be unavailable; the next poll starts a fresh cursor.
+        }
+    };
+    const poll = async () => {
+        try {
+            const response = await fetch('/api/events?since=' + encodeURIComponent(read()), {
+                credentials: 'same-origin',
+                cache: 'no-store',
+            });
+
+            if (!response.ok) {
+                return;
+            }
+
+            const data = await response.json();
+
+            (data.events || []).forEach((event) => bridge.postMessage({
+                id: String(event.id),
+                title: String(event.title),
+                body: String(event.body),
+            }));
+            write(String(data.cursor || ''));
+        } catch (error) {
+            // Offline or the host Mac is asleep: try again on the next tick.
+        }
+    };
+
+    poll();
+    window.setInterval(poll, every);
+})();

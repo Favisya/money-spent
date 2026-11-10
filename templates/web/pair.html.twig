@@ -1,0 +1,22 @@
+{% extends 'web/base.html.twig' %}
+
+{% block title %}Подключение — Траты{% endblock %}
+
+{% block header %}{% endblock %}
+
+{% block body %}
+    <div class="pair">
+        <h1>Подключиться к общему учёту</h1>
+        <p class="hint measure">На главном Mac открой <strong>Траты → Доступ</strong> и нажми «Показать код». Код
+            действует 10 минут, вводится один раз — дальше этот Mac подключается сам, пока главный включён.</p>
+        <form class="block" method="post" action="{{ path('web_pair_submit') }}">
+            <label class="label" for="pair-code">Код</label>
+            <input id="pair-code" class="input pair__code" name="code" inputmode="numeric" autocomplete="one-time-code"
+                   required maxlength="7" pattern="\d{3}\s?\d{3}" placeholder="123 456" autofocus>
+            <label class="label" for="pair-name">Как назвать этот Mac</label>
+            <input id="pair-name" class="input" name="name" maxlength="64" value="{{ name }}" placeholder="Mac Алисы">
+            {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+            <button class="button" type="submit">Подключиться</button>
+        </form>
+    </div>
+{% endblock %}
