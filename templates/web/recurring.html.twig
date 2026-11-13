@@ -46,6 +46,7 @@
         {% if items is empty %}
             <div class="empty"><p>{{ 'Пока ничего. Например, <code>18,5 eur чатгпт</code> на 10-е число.'|trans|raw }}</p></div>
         {% else %}
+            <div class="ledger-scroll">
             <table class="ledger ledger--expenses">
                 <thead>
                 <tr>
@@ -147,6 +148,7 @@
                 {% endfor %}
                 </tbody>
             </table>
+            </div>
         {% endif %}
     </section>
 {% endblock %}

@@ -65,6 +65,28 @@
     'use strict';
 
     // Inside the macOS app: ask the server for new entries by others and hand them to native notifications.
+    // Expense tables keep one line per row while it fits the column, and fold each row into two lines when it
+    // does not: the width depends on zoom, language and the amounts, so it is measured rather than guessed.
+    const fit = (table) => {
+        table.classList.remove('is-folded');
+        table.classList.toggle('is-folded', table.offsetWidth > table.parentElement.clientWidth + 1);
+    };
+    const widths = new WeakMap();
+    const folding = 'ResizeObserver' in window ? new ResizeObserver((entries) => entries.forEach((entry) => {
+        const width = Math.round(entry.contentRect.width);
+        const table = entry.target.querySelector('.ledger--expenses');
+
+        if (table && widths.get(entry.target) !== width) {
+            widths.set(entry.target, width);
+            fit(table);
+        }
+    })) : null;
+
+    document.querySelectorAll('.ledger--expenses').forEach((table) => {
+        fit(table);
+        folding?.observe(table.parentElement);
+    });
+
     const bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.notify;
 
     if (!bridge) {

@@ -84,7 +84,7 @@ code {
     white-space: nowrap;
 }
 
-.wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
+.wrap { max-width: 1260px; margin: 0 auto; padding: 0 16px; }
 
 .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .r { text-align: right; }
@@ -704,7 +704,7 @@ form.block .button--quiet { margin-top: 0.85rem; }
 .cell-edit:hover, .cell-edit:focus { border-bottom-color: var(--faint); color: var(--ink); outline: none; }
 .cell-edit--date { width: 3.4rem; }
 .cell-edit--date:focus { width: 6.2rem; }
-.cell-edit--amount { width: 6.5rem; text-align: right; }
+.cell-edit--amount { width: 5.75rem; text-align: right; }
 .amount-edit { white-space: nowrap; }
 .amount-edit__currency { font-family: var(--mono); font-size: 0.85rem; max-width: 4.5rem; margin-left: 0.25rem; }
 
@@ -721,36 +721,37 @@ form.block .button--quiet { margin-top: 0.85rem; }
     white-space: pre;
 }
 
-/* expenses: when the main column is too narrow for one line, each row folds into two */
+/* expenses: app.js folds each row into two lines (three on a phone) when the table does not fit its column,
+   at any zoom, language or currency; without JS the table scrolls sideways instead of running under the panel */
 .layout__main { container-type: inline-size; }
-@container (max-width: 760px) {
-    .ledger--expenses thead { display: none; }
-    .ledger--expenses tr {
-        display: grid;
-        grid-template-columns: 3.4rem auto minmax(0, 1fr) auto auto;
-        grid-template-areas:
-            "date cat   cat   amount amount"
-            ".    payer whose base   actions";
-        column-gap: 0.75rem;
-        row-gap: 0.15rem;
-        align-items: center;
-        padding: 0.55rem 0.25rem;
-        border-bottom: 1px solid var(--line);
-    }
-    .ledger--expenses tr:last-child { border-bottom: 0; }
-    .ledger--expenses tr.is-new { background: var(--accent-soft); }
-    .ledger--expenses td,
-    .ledger--expenses tr.is-new td { border: 0; padding: 0; background: none; }
-    .ledger--expenses td:nth-child(1) { grid-area: date; align-self: start; padding-top: 0.2rem; }
-    .ledger--expenses td:nth-child(2) { grid-area: cat; }
-    .ledger--expenses td:nth-child(3) { grid-area: payer; }
-    .ledger--expenses td:nth-child(4) { grid-area: whose; }
-    .ledger--expenses td:nth-child(5) { grid-area: amount; align-self: start; }
-    .ledger--expenses td:nth-child(6) { grid-area: base; }
-    .ledger--expenses td:nth-child(7) { grid-area: actions; }
+.ledger-scroll { overflow-x: auto; }
+.ledger--expenses.is-folded thead { display: none; }
+.ledger--expenses.is-folded tr {
+    display: grid;
+    grid-template-columns: 3.4rem auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+        "date cat   cat   amount amount"
+        ".    payer whose base   actions";
+    column-gap: 0.75rem;
+    row-gap: 0.15rem;
+    align-items: center;
+    padding: 0.55rem 0.25rem;
+    border-bottom: 1px solid var(--line);
 }
+.ledger--expenses.is-folded tr:last-child { border-bottom: 0; }
+.ledger--expenses.is-folded tr.is-new { background: var(--accent-soft); }
+.ledger--expenses.is-folded td,
+.ledger--expenses.is-folded tr.is-new td { border: 0; padding: 0; background: none; }
+.ledger--expenses.is-folded td:nth-child(1) { grid-area: date; align-self: start; padding-top: 0.2rem; }
+.ledger--expenses.is-folded td:nth-child(2) { grid-area: cat; }
+.ledger--expenses.is-folded td:nth-child(3) { grid-area: payer; }
+.ledger--expenses.is-folded td:nth-child(4) { grid-area: whose; }
+.ledger--expenses.is-folded td:nth-child(5) { grid-area: amount; align-self: start; }
+.ledger--expenses.is-folded td:nth-child(6) { grid-area: base; }
+.ledger--expenses.is-folded td:nth-child(7) { grid-area: actions; }
+.ledger--expenses.is-folded tr.ledger__error { display: block; border-bottom: 0; padding-top: 0; }
 @container (max-width: 480px) {
-    .ledger--expenses tr {
+    .ledger--expenses.is-folded tr {
         grid-template-columns: auto auto minmax(0, 1fr) auto;
         grid-template-areas:
             "date   cat    cat    cat"
@@ -758,8 +759,9 @@ form.block .button--quiet { margin-top: 0.85rem; }
             "payer  whose  whose  actions";
         column-gap: 0.5rem;
     }
-    .ledger--expenses td:nth-child(1),
-    .ledger--expenses td:nth-child(5) { align-self: center; padding-top: 0; text-align: left; }
+    .ledger--expenses.is-folded td:nth-child(1),
+    .ledger--expenses.is-folded td:nth-child(5) { align-self: center; padding-top: 0; text-align: left; }
+}
 }
 
 /* currencies */
@@ -772,6 +774,3 @@ form.block .button--quiet { margin-top: 0.85rem; }
 .cell-edit--day { width: 3rem; }
 .cell-edit--day::-webkit-inner-spin-button { opacity: 0.4; }
 .ledger--expenses tr.ledger__error td { border-top: 0; padding-top: 0; }
-@container (max-width: 760px) {
-    .ledger--expenses tr.ledger__error { display: block; border-bottom: 0; padding-top: 0; }
-}

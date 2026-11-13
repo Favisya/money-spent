@@ -98,6 +98,7 @@
                             <a href="{{ path('web_import') }}">{{ 'импорт'|trans }}</a>.</p>
                     </div>
                 {% else %}
+                    <div class="ledger-scroll">
                     <table class="ledger ledger--expenses">
                         <thead>
                         <tr>
@@ -226,6 +227,7 @@
                         {% endfor %}
                         </tbody>
                     </table>
+                    </div>
                 {% endif %}
             </section>
 
