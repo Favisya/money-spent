@@ -86,6 +86,10 @@
                             {% for o in d.owners.owners %}
                                 <a href="{{ path('web_dashboard', {m: d.period.key, who: o.key}) }}" {{ d.filter and d.filter.key == o.key ? 'aria-current="true"' }}>{{ o.isShared ? 'общие'|trans : o|owner_label }}</a>
                             {% endfor %}
+                            {% for o in d.owners.people %}
+                                <a href="{{ path('web_dashboard', {m: d.period.key, who: o.key}) }}" {{ d.filter and d.filter.key == o.key ? 'aria-current="true"' }}
+                                   title="{{ 'Личные траты и доля общих'|trans }}">{{ o|owner_label }}</a>
+                            {% endfor %}
                         </nav>
                     {% endif %}
                 </div>
@@ -107,7 +111,7 @@
                             <th scope="col">{{ 'Платил'|trans }}</th>
                             <th scope="col">{{ 'Чья'|trans }}</th>
                             <th scope="col" class="r">{{ 'Сумма'|trans }}</th>
-                            <th scope="col" class="r">{{ display_currency().code }}</th>
+                            <th scope="col" class="r">{{ d.filter and d.filter.whole ? 'доля'|trans ~ ', ' }}{{ display_currency().code }}</th>
                             <th scope="col"><span class="sr">{{ 'Действия'|trans }}</span></th>
                         </tr>
                         </thead>
@@ -202,6 +206,8 @@
                                 <td class="r num">
                                     {% if e.amountBase is null %}
                                         <span class="warn" title="{{ 'Курса на эту дату пока нет'|trans }}">{{ 'нет курса'|trans }}</span>
+                                    {% elseif d.shares[e.id] is defined %}
+                                        <span class="share" title="{{ 'доля из %total%'|trans({'%total%': e.amountBase|shown}) }}">{{ d.shares[e.id]|shown_number }}</span>
                                     {% elseif e.amount.currency.code != display_currency().code %}
                                         <span title="{{ 'курс %rate%'|trans({'%rate%': e.rate|rate}) }}">{{ e.amountBase|shown_number }}</span>
                                     {% else %}
@@ -275,6 +281,15 @@
                             <tr>
                                 <th scope="row"><a class="owner-tag" href="{{ path('web_dashboard', {m: d.period.key, who: o.key}) }}">{% if o.isShared %}<i class="swatch" style="background: {{ owner_color(o) }}"></i>{% else %}{{ avatar(o.participantId, o.label) }}{% endif %}{{ o|owner_label }}</a></th>
                                 <td class="r num">{{ (d.owners.ownerTotals[o.key] ?? 0)|shown_number }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                        <tbody class="figures__wholes">
+                        {% for o in d.owners.people %}
+                            <tr>
+                                <th scope="row"><a class="owner-tag" href="{{ path('web_dashboard', {m: d.period.key, who: o.key}) }}"
+                                                   title="{{ 'Личные траты и доля общих'|trans }}">{{ avatar(o.participantId, o.label) }}{{ o|owner_label }}</a></th>
+                                <td class="r num">{{ (d.owners.wholeTotals[o.key] ?? 0)|shown_number }}</td>
                             </tr>
                         {% endfor %}
                         </tbody>

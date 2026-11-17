@@ -201,9 +201,11 @@ final readonly class AppExtension
     #[AsTwigFilter('owner_label')]
     public function ownerLabel(Owner $owner): string
     {
-        return $owner->isShared()
-            ? $this->translator->trans('Общие')
-            : $this->translator->trans('%name% лично', ['%name%' => $owner->label]);
+        return match (true) {
+            $owner->isShared() => $this->translator->trans('Общие'),
+            $owner->whole      => $this->translator->trans('%name% всего', ['%name%' => $owner->label]),
+            default            => $this->translator->trans('%name% лично', ['%name%' => $owner->label]),
+        };
     }
 
     #[AsTwigFilter('split_label')]

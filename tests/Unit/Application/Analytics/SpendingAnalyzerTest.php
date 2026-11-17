@@ -67,6 +67,23 @@ final class SpendingAnalyzerTest extends TestCase
         self::assertSame(0, $analysis->pendingCount);
     }
 
+    public function testWholeSpendingIsPersonalPlusShareOfShared(): void
+    {
+        self::assertSame(['c1' => 15700, 'c2' => 20000], $this->analyze(null)->wholeTotals);
+
+        $anna = $this->analyze('c1');
+
+        self::assertSame('Анна', $anna->filter?->label);
+        self::assertTrue($anna->filter->whole);
+        self::assertSame(['shared' => 30000, 'p1' => 700, 'p2' => 5000], $anna->ownerTotals);
+        self::assertSame(15700, $anna->total);
+        self::assertSame(3, $anna->count);
+        self::assertSame(1, $anna->pendingCount);
+        self::assertSame([self::FOOD => 15700], $anna->categoryTotals);
+        self::assertEquals(['shared' => [self::FOOD => 15000], 'p1' => [self::FOOD => 700]], $anna->ownerCategory);
+        self::assertSame(20000, $this->analyze('c2')->total);
+    }
+
     public function testTopListsAndOwnerLookup(): void
     {
         $analysis = $this->analyze(null);

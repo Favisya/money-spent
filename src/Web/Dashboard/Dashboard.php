@@ -23,6 +23,8 @@ final readonly class Dashboard
      * @param list<Participant>    $participants
      * @param list<TrendPoint>     $trend oldest first
      * @param int                  $totalCount expenses in the month before the owner filter
+     * @param array<int, int>      $shares     expense id => the filtered participant's share in base minor units,
+     *                                         filled only for a participant's whole-spending view
      */
     public function __construct(
         public MonthPeriod $period,
@@ -38,6 +40,7 @@ final readonly class Dashboard
         public SpendingAnalysis $owners,
         public ?Owner $filter,
         public int $totalCount,
+        public array $shares = [],
     ) {
     }
 

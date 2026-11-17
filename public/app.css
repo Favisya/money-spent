@@ -774,3 +774,8 @@ form.block .button--quiet { margin-top: 0.85rem; }
 .cell-edit--day { width: 3rem; }
 .cell-edit--day::-webkit-inner-spin-button { opacity: 0.4; }
 .ledger--expenses tr.ledger__error td { border-top: 0; padding-top: 0; }
+
+/* a participant's whole spending: personal expenses plus the share of shared ones */
+.figures__wholes tr:first-child th, .figures__wholes tr:first-child td { border-top: 1px solid var(--line); padding-top: 0.5rem; }
+.share { border-bottom: 1px dotted var(--faint); }
+.owners__item--whole { border-style: dashed; }

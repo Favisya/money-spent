@@ -7,6 +7,7 @@ namespace App\Application\Analytics;
 use App\Application\Participant\Participant;
 use App\Application\Reference\Category;
 use App\Domain\Money\Currency;
+use App\Domain\Split\SplitCalculator;
 use DateTimeImmutable;
 
 /**
@@ -16,6 +17,11 @@ final readonly class SpendingAnalyzer
 {
     private const int TOP_EXPENSES = 10;
     private const int TOP_NOTES    = 10;
+
+    public function __construct(
+        private SplitCalculator $split = new SplitCalculator(),
+    ) {
+    }
 
     /**
      * @param list<SpendingRow> $rows
@@ -32,30 +38,40 @@ final readonly class SpendingAnalyzer
         DateTimeImmutable $today,
     ): SpendingAnalysis {
         $owners = [Owner::shared()];
+        $people = [];
 
         foreach ($participants as $index => $participant) {
             $owners[] = Owner::personal($participant, $index + 1);
+            $people[] = Owner::whole($participant, $index + 1);
         }
 
         $ids    = array_map(static fn (Participant $participant): int => $participant->id, $participants);
         $filter = null;
 
-        foreach ($owners as $owner) {
+        foreach ([...$owners, ...$people] as $owner) {
             $filter = $owner->key === $filterKey ? $owner : $filter;
         }
 
         $ownerTotals = array_fill_keys(array_map(static fn (Owner $owner): string => $owner->key, $owners), 0);
+        $wholeTotals = array_fill_keys(array_map(static fn (Owner $owner): string => $owner->key, $people), 0);
         $pending     = 0;
         $known       = [];
 
         foreach ($rows as $row) {
             $ownerKey = Owner::keyFor($row->split->ownerId($row->payerId, $ids));
+            $shares   = $row->amountBaseMinor === null
+                ? []
+                : $this->split->shares($row->payerId, $row->amountBaseMinor, $row->split, $ids);
 
-            if ($filter !== null && $filter->key !== $ownerKey) {
-                if ($row->amountBaseMinor !== null) {
-                    $ownerTotals[$ownerKey] = ($ownerTotals[$ownerKey] ?? 0) + $row->amountBaseMinor;
+            if ($row->amountBaseMinor !== null) {
+                $ownerTotals[$ownerKey] = ($ownerTotals[$ownerKey] ?? 0) + $row->amountBaseMinor;
+
+                foreach ($people as $person) {
+                    $wholeTotals[$person->key] += $shares[(int) $person->participantId] ?? 0;
                 }
+            }
 
+            if ($filter !== null && !$filter->covers($ownerKey)) {
                 continue;
             }
 
@@ -65,14 +81,18 @@ final readonly class SpendingAnalyzer
                 continue;
             }
 
-            $ownerTotals[$ownerKey] = ($ownerTotals[$ownerKey] ?? 0) + $row->amountBaseMinor;
-            $known[]                = [$row, $ownerKey, $row->amountBaseMinor];
+            $amount = $filter !== null && $filter->whole
+                ? $shares[(int) $filter->participantId] ?? 0
+                : $row->amountBaseMinor;
+            $known[] = [$row, $ownerKey, $amount];
         }
 
         return $this->aggregate(
             $period,
             $base,
             $owners,
+            $people,
+            $wholeTotals,
             $filter,
             $this->indexCategories($categories),
             $ownerTotals,
@@ -84,6 +104,8 @@ final readonly class SpendingAnalyzer
 
     /**
      * @param list<Owner>                              $owners
+     * @param list<Owner>                              $people      whole-spending view of every participant
+     * @param array<string, int>                       $wholeTotals whole owner key => total
      * @param array<int, Category>                     $categories
      * @param array<string, int>                       $ownerTotals
      * @param list<array{SpendingRow, string, int}>    $known
@@ -92,6 +114,8 @@ final readonly class SpendingAnalyzer
         AnalysisPeriod $period,
         Currency $base,
         array $owners,
+        array $people,
+        array $wholeTotals,
         ?Owner $filter,
         array $categories,
         array $ownerTotals,
@@ -156,6 +180,8 @@ final readonly class SpendingAnalyzer
             $weekdays,
             $this->topExpenses($known),
             $this->topNotes($notes),
+            $people,
+            $wholeTotals,
         );
     }
 

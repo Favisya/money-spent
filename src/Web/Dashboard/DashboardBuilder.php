@@ -9,11 +9,13 @@ use App\Application\Analytics\AnalyticsService;
 use App\Application\Balance\BalanceReport;
 use App\Application\Balance\BalanceService;
 use App\Application\Expense\ExpenseView;
+use App\Application\Participant\Participant;
 use App\Application\Reference\CurrencyCatalog;
 use App\Application\Report\MonthlyReport;
 use App\Application\Report\MonthlyReportService;
 use App\Application\Report\MonthPeriod;
 use App\Domain\Money\Money;
+use App\Domain\Split\SplitCalculator;
 use App\Infrastructure\Persistence\CategoryRepository;
 use App\Infrastructure\Persistence\ExpenseRepository;
 use App\Infrastructure\Persistence\ParticipantRepository;
@@ -32,6 +34,7 @@ final readonly class DashboardBuilder
         private ParticipantRepository $participants,
         private CurrencyCatalog $currencies,
         private AnalyticsService $analytics,
+        private SplitCalculator $split,
     ) {
     }
 
@@ -44,9 +47,12 @@ final readonly class DashboardBuilder
         $expenses = array_reverse($this->expenses->findViews($period->start(), $period->endExclusive()));
         $shown    = $filter === null ? $expenses : array_values(array_filter(
             $expenses,
-            static fn (ExpenseView $expense): bool => $owners->ownerFor($expense->payerId, $expense->split)->key
-                === $filter->key,
+            static fn (ExpenseView $expense): bool => $filter->covers(
+                $owners->ownerFor($expense->payerId, $expense->split)->key,
+            ),
         ));
+
+        $people = $this->participants->all();
 
         return new Dashboard(
             $period,
@@ -57,12 +63,38 @@ final readonly class DashboardBuilder
             $shown,
             $this->settlements->findViews($period->start(), $period->endExclusive()),
             $this->categories->findActive(),
-            $this->participants->all(),
+            $people,
             $this->trend($period),
             $owners,
             $filter,
             count($expenses),
+            $filter?->whole === true ? $this->shares($shown, (int) $filter->participantId, $people) : [],
         );
+    }
+
+    /**
+     * @param list<ExpenseView> $expenses
+     * @param list<Participant> $people
+     *
+     * @return array<int, int> expense id => the participant's share in base minor units
+     */
+    private function shares(array $expenses, int $participantId, array $people): array
+    {
+        $ids    = array_map(static fn (Participant $participant): int => $participant->id, $people);
+        $shares = [];
+
+        foreach ($expenses as $expense) {
+            if ($expense->amountBase !== null) {
+                $shares[$expense->id] = $this->split->shares(
+                    $expense->payerId,
+                    $expense->amountBase->minor,
+                    $expense->split,
+                    $ids,
+                )[$participantId] ?? 0;
+            }
+        }
+
+        return $shares;
     }
 
     /**

@@ -58,6 +58,15 @@
                     <span class="owners__pct num muted">{{ a.share(v, a.ownersTotal) }}%</span>
                 </a>
             {% endfor %}
+            {% for o in a.people %}
+                {% set v = a.wholeTotals[o.key] ?? 0 %}
+                <a class="owners__item owners__item--whole" href="{{ path('web_analytics', periodQuery|merge({who: o.key})) }}"
+                   title="{{ 'Личные траты и доля общих'|trans }}" {{ a.filter and a.filter.key == o.key ? 'aria-current="true"' }}>
+                    <span class="owners__name">{{ avatar(o.participantId, o.label) }}{{ o|owner_label }}</span>
+                    <span class="owners__sum num">{{ v|shown }}</span>
+                    <span class="owners__pct num muted">{{ a.share(v, a.ownersTotal) }}%</span>
+                </a>
+            {% endfor %}
         </nav>
     </section>
 

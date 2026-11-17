@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Web\Controller;
 
+use App\Application\Analytics\Owner;
 use App\Application\Clock\LocalCalendar;
 use App\Application\Expense\ExpenseEditor;
 use App\Application\Expense\ExpenseRecorder;
@@ -34,7 +35,6 @@ final class DashboardController extends AbstractController
 {
     private const string PAYER_COOKIE = 'payer';
     private const int COOKIE_TTL      = 31_536_000;
-    private const string OWNER_KEY    = '/^(shared|p\d+)$/';
     private const array NOTICES       = [
         'added'    => 'Трата записана.',
         'joint'    => 'Записано пополам: по половине на каждого, долг не изменился.',
@@ -367,7 +367,7 @@ final class DashboardController extends AbstractController
 
     private function ownerKey(string $value): ?string
     {
-        return preg_match(self::OWNER_KEY, $value) === 1 ? $value : null;
+        return Owner::isKey($value) ? $value : null;
     }
 
     private function withWhose(ParsedExpense $parsed, string $whose): ParsedExpense

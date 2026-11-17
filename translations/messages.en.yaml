@@ -381,3 +381,6 @@
 "Записано пополам: по половине на каждого, долг не изменился.": "Recorded as half each: one half per person, the debt didn't change."
 "Сохранено. Уже записанные траты не изменились.": "Saved. Expenses already recorded stay as they were."
 "«Оба» можно выбрать, когда зарегистрированы оба участника.": "“Both” needs two participants."
+"%name% всего": "All of %name%’s"
+"Личные траты и доля общих": "Personal expenses plus the share of shared ones"
+"доля из %total%": "share of %total%"

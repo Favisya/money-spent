@@ -386,6 +386,32 @@ final class WebAppTest extends KernelTestCase
         self::assertNull($this->db->fetchOne('SELECT payer_id FROM recurring_expense WHERE id = 2'));
     }
 
+    public function testWholeSpendingOfAParticipant(): void
+    {
+        $this->people();
+        $this->post('/expenses', ['text' => '1001 продукты', 'payer' => $this->anna]);
+        $this->post('/expenses', ['text' => '300 кофе лично', 'payer' => $this->anna]);
+        $this->post('/expenses', ['text' => '500 такси лично', 'payer' => $this->boris]);
+
+        $page = $this->plain($this->get('/?m=2026-11'));
+        self::assertMatchesRegularExpression('/Анна всего\s+801/u', $page);
+        self::assertMatchesRegularExpression('/Борис всего\s+1\s000/u', $page);
+
+        $anna = (string) $this->get('/?m=2026-11&who=c' . $this->anna)->getContent();
+        self::assertStringContainsString('доля, AMD', $anna);
+        self::assertStringContainsString('title="доля из 1 001 AMD">501</span>', str_replace("\u{00A0}", ' ', $anna));
+        self::assertStringContainsString('кофе', $anna);
+        self::assertStringNotContainsString('такси', $anna);
+
+        $english = (string) $this->get('/?m=2026-11&who=c' . $this->anna, [], ['lang' => 'en'])->getContent();
+        self::assertStringContainsString('All of Анна’s', $english);
+        self::assertStringContainsString('share, AMD', $english);
+
+        $analytics = $this->plain($this->get('/analytics?who=c' . $this->anna));
+        self::assertStringContainsString('Анна всего', $analytics);
+        self::assertStringContainsString('такси', (string) $this->get('/?m=2026-11&who=x1')->getContent());
+    }
+
     public function testInvalidExpenseIsExplained(): void
     {
         $this->people();

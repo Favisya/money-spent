@@ -27,6 +27,8 @@ final readonly class SpendingAnalysis
      * @param array<int, int>                 $weekdays      1 (Mon) .. 7 (Sun) => total
      * @param list<SpendingRow>               $topExpenses   biggest first
      * @param list<NoteTotal>                 $topNotes      biggest first
+     * @param list<Owner>                     $people        whole spending of each participant
+     * @param array<string, int>              $wholeTotals   whole owner key => personal plus share of shared
      */
     public function __construct(
         public AnalysisPeriod $period,
@@ -48,6 +50,8 @@ final readonly class SpendingAnalysis
         public array $weekdays,
         public array $topExpenses,
         public array $topNotes,
+        public array $people = [],
+        public array $wholeTotals = [],
     ) {
     }
 
@@ -58,7 +62,7 @@ final readonly class SpendingAnalysis
 
     public function owner(string $key): ?Owner
     {
-        foreach ($this->owners as $owner) {
+        foreach ([...$this->owners, ...$this->people] as $owner) {
             if ($owner->key === $key) {
                 return $owner;
             }
