@@ -135,7 +135,8 @@ final class CliReceiptReadersTest extends TestCase
         $receipt = $this->codex()->read($this->photo(), $this->context('ru'), new AiCredentials('', ''));
 
         self::assertSame('SAS', $receipt->store);
-        self::assertSame(base64_decode(ReceiptReadersTest::PNG, true), $this->logged('image'));
+        self::assertSame(base64_decode(ReceiptReadersTest::PNG, true), $this->logged('image-1'));
+        self::assertFileDoesNotExist($this->log . '/image-2');
 
         $arguments = $this->arguments();
         self::assertSame('exec', $arguments[0]);
@@ -145,6 +146,26 @@ final class CliReceiptReadersTest extends TestCase
         self::assertStringContainsString('Read the positions of this receipt or order.', $this->logged('stdin'));
         self::assertStringNotContainsString(self::SECRET, $this->logged('env'));
         self::assertDirectoryDoesNotExist(trim($this->logged('cwd')));
+    }
+
+    public function testSeveralScreenshotsAreReadAsOneOrder(): void
+    {
+        $this->tool('codex', self::ANSWER);
+        $this->codex()->read($this->photos(3), $this->context('ru'), new AiCredentials('', ''));
+
+        self::assertFileExists($this->log . '/image-3');
+        self::assertStringContainsString('These 3 images are consecutive parts', $this->logged('stdin'));
+
+        $this->tool('claude', $this->claudeOutput(['is_error' => false, 'structured_output' => $this->answer()]));
+        $this->claudeCode()->read($this->photos(2), $this->context('ru'), new AiCredentials('', ''));
+
+        $message = json_decode($this->logged('stdin'), true);
+        self::assertIsArray($message);
+        self::assertSame(
+            ['image', 'image', 'text'],
+            array_column($message['message']['content'], 'type'),
+        );
+        self::assertStringContainsString('These 2 images', $message['message']['content'][2]['text']);
     }
 
     public function testCodexWithoutAnAnswerIsExplained(): void
@@ -175,13 +196,12 @@ final class CliReceiptReadersTest extends TestCase
         $log    = escapeshellarg($this->log);
         $answer = escapeshellarg($answer);
         $codex  = $name === 'codex' ? <<<SH
-            out=""; img=""; prev=""
+            out=""; prev=""; n=0
             for a in "\$@"; do
               [ "\$prev" = "--output-last-message" ] && out="\$a"
-              [ "\$prev" = "--image" ] && img="\$a"
+              case "\$a" in --image=*) n=\$((n + 1)); cp "\${a#--image=}" {$log}/image-\$n ;; esac
               prev="\$a"
             done
-            [ -n "\$img" ] && cp "\$img" {$log}/image
             [ -n {$answer} ] && printf '%s' {$answer} > "\$out"
             SH : "printf '%s\\n' {$answer}";
 
@@ -244,7 +264,14 @@ final class CliReceiptReadersTest extends TestCase
 
     private function photo(): ReceiptInput
     {
-        return ReceiptInput::photo(ReceiptImage::fromBytes((string) base64_decode(ReceiptReadersTest::PNG, true)));
+        return $this->photos(1);
+    }
+
+    private function photos(int $count): ReceiptInput
+    {
+        $image = ReceiptImage::fromBytes((string) base64_decode(ReceiptReadersTest::PNG, true));
+
+        return ReceiptInput::photos(array_fill(0, $count, $image));
     }
 
     private function context(string $language): ReadingContext

@@ -65,13 +65,13 @@ final readonly class ClaudeCodeReceiptReader implements ReceiptReader
     {
         $content = [];
 
-        if ($input->image !== null) {
+        foreach ($input->images as $image) {
             $content[] = [
                 'type'   => 'image',
                 'source' => [
                     'type'       => 'base64',
-                    'media_type' => $input->image->mediaType,
-                    'data'       => base64_encode($input->image->bytes),
+                    'media_type' => $image->mediaType,
+                    'data'       => base64_encode($image->bytes),
                 ],
             ];
         }

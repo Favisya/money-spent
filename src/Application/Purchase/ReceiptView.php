@@ -23,15 +23,15 @@ final readonly class ReceiptView
         public bool $paidByBoth,
         public SplitType $split,
         public ?string $sourceText,
-        public ?string $imageType,
+        public int $imageCount,
         public DateTimeImmutable $createdAt,
         public array $expenseIds,
     ) {
     }
 
-    public function hasImage(): bool
+    public function hasImages(): bool
     {
-        return $this->imageType !== null;
+        return $this->imageCount > 0;
     }
 
     public function isDraft(): bool

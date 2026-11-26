@@ -113,11 +113,11 @@ final readonly class ClaudeReceiptReader implements ReceiptReader
     {
         $content = [];
 
-        if ($input->image !== null) {
+        foreach ($input->images as $image) {
             $content[] = BetaImageBlockParam::with(
                 source: BetaBase64ImageSource::with(
-                    data: base64_encode($input->image->bytes),
-                    mediaType: MediaType::from($input->image->mediaType),
+                    data: base64_encode($image->bytes),
+                    mediaType: MediaType::from($image->mediaType),
                 ),
             );
         }

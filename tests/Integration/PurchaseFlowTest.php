@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration;
 
+use App\Application\Purchase\ReceiptInput;
 use App\Infrastructure\Persistence\ParticipantRepository;
 use App\Tests\Support\FakeReceiptReader;
 use App\Tests\Support\WebRequests;
@@ -253,11 +254,11 @@ final class PurchaseFlowTest extends KernelTestCase
         $png  = (string) base64_decode(ReceiptReadersTest::PNG, true);
         $file = $this->file($png, 'receipt.png');
 
-        $response = $this->upload('/purchases/recognize', ['text' => ''], ['photo' => $file]);
+        $response = $this->upload('/purchases/recognize', ['text' => ''], ['photos' => [$file]]);
         self::assertSame('/purchases/1?ok=recognized', $response->headers->get('Location'));
-        self::assertSame('image/png', $this->reader->lastInput?->image?->mediaType);
+        self::assertSame('image/png', $this->reader->lastInput?->images[0]->mediaType);
 
-        $image = $this->get('/purchases/1/image');
+        $image = $this->get('/purchases/1/image/0');
         self::assertSame($png, $image->getContent());
         self::assertSame('image/png', $image->headers->get('Content-Type'));
         self::assertSame('nosniff', $image->headers->get('X-Content-Type-Options'));
@@ -266,9 +267,41 @@ final class PurchaseFlowTest extends KernelTestCase
         self::assertStringContainsString('черновик', $list);
         self::assertStringContainsString('фото', $list);
 
-        $fake = $this->upload('/purchases/recognize', [], ['photo' => $this->file('<?php echo 1;', 'receipt.jpg')]);
+        self::assertSame(404, $this->get('/purchases/1/image/1')->getStatusCode());
+
+        $fake = $this->upload('/purchases/recognize', [], ['photos' => [$this->file('<?php echo 1;', 'receipt.jpg')]]);
         self::assertSame(422, $fake->getStatusCode());
         self::assertStringContainsString('Нужна картинка JPEG, PNG, WebP или GIF.', (string) $fake->getContent());
+    }
+
+    public function testSeveralScreenshotsMakeOneReceipt(): void
+    {
+        $this->configure();
+        $png = (string) base64_decode(ReceiptReadersTest::PNG, true);
+
+        $response = $this->upload('/purchases/recognize', [], ['photos' => [
+            $this->file($png, 'order-1.png'),
+            $this->file($png, 'order-2.png'),
+            $this->file($png, 'order-3.png'),
+        ]]);
+        self::assertSame('/purchases/1?ok=recognized', $response->headers->get('Location'));
+        self::assertCount(3, $this->reader->lastInput->images ?? []);
+        self::assertSame(3, (int) $this->db->fetchOne('SELECT COUNT(*) FROM receipt_image WHERE receipt_id = 1'));
+
+        $page = (string) $this->get('/purchases/1')->getContent();
+        self::assertStringContainsString('Фото чека: 3', $page);
+        self::assertStringContainsString('/purchases/1/image/2', $page);
+        self::assertSame($png, $this->get('/purchases/1/image/2')->getContent());
+
+        $tooMany = $this->upload('/purchases/recognize', [], ['photos' => array_map(
+            fn (int $n): UploadedFile => $this->file($png, "order-{$n}.png"),
+            range(1, ReceiptInput::MAX_IMAGES + 1),
+        )]);
+        self::assertSame(422, $tooMany->getStatusCode());
+        self::assertStringContainsString('За раз — до 8 фото.', (string) $tooMany->getContent());
+
+        $this->post('/purchases/1/delete', []);
+        self::assertSame(404, $this->get('/purchases/1/image/0')->getStatusCode());
     }
 
     public function testManualReceiptWithoutAi(): void

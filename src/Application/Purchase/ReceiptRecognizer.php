@@ -43,7 +43,7 @@ final readonly class ReceiptRecognizer
         }
 
         return $this->receipts->create(
-            new ReceiptDraft($input->source(), $provider, $content, $input->text, $input->image),
+            new ReceiptDraft($input->source(), $provider, $content, $input->text, $input->images),
             Uuid::v4()->toRfc4122(),
         );
     }

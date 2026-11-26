@@ -9,12 +9,15 @@ namespace App\Application\Purchase;
  */
 final readonly class ReceiptDraft
 {
+    /**
+     * @param list<ReceiptImage> $images
+     */
     public function __construct(
         public ReceiptSource $source,
         public ?AiProvider $provider,
         public ReceiptContent $content,
         public ?string $sourceText = null,
-        public ?ReceiptImage $image = null,
+        public array $images = [],
     ) {
     }
 }

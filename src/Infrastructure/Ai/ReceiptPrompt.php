@@ -56,6 +56,14 @@ final class ReceiptPrompt
 
     public static function request(ReceiptInput $input): string
     {
+        $count = count($input->images);
+
+        if ($count > 1) {
+            return "These {$count} images are consecutive parts of one receipt or one order, such as screenshots taken "
+                . 'while scrolling a long list. Read them as one receipt: a position shown on two images where they '
+                . 'overlap is one position, list it once.';
+        }
+
         if ($input->text === null) {
             return 'Read the positions of this receipt or order.';
         }

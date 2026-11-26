@@ -68,10 +68,10 @@ final readonly class CodexReceiptReader implements ReceiptReader
             '--output-schema', $dir . '/' . self::SCHEMA,
         ];
 
-        if ($input->image !== null) {
-            $photo = $dir . '/receipt.' . self::EXTENSIONS[$input->image->mediaType];
-            $this->files->dumpFile($photo, $input->image->bytes);
-            array_push($arguments, '--image', $photo);
+        foreach ($input->images as $position => $image) {
+            $photo = sprintf('%s/receipt-%d.%s', $dir, $position + 1, self::EXTENSIONS[$image->mediaType]);
+            $this->files->dumpFile($photo, $image->bytes);
+            $arguments[] = '--image=' . $photo;
         }
 
         if ($credentials->model !== '') {

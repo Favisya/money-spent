@@ -110,18 +110,25 @@
         </form>
 
         <aside class="layout__side">
-            {% if receipt.hasImage %}
+            {% if receipt.hasImages %}
+                {% set positions = range(0, receipt.imageCount - 1) %}
                 <div class="block receipt-photo">
-                    <h2>{{ 'Фото чека'|trans }}</h2>
-                    <button class="receipt-photo__open" type="button" data-lightbox-open aria-label="{{ 'Открыть фото крупно'|trans }}">
-                        <img src="{{ path('web_purchase_image', {id: receipt.id}) }}" alt="{{ 'Фото чека'|trans }}" loading="lazy">
-                    </button>
+                    <h2>{{ receipt.imageCount > 1 ? 'Фото чека: %count%'|trans({'%count%': receipt.imageCount}) : 'Фото чека'|trans }}</h2>
+                    <div class="receipt-photo__list {{ receipt.imageCount > 1 ? 'receipt-photo__list--many' }}">
+                        {% for position in positions %}
+                            <button class="receipt-photo__open" type="button" data-lightbox-open="{{ position }}" aria-label="{{ 'Открыть фото %number% крупно'|trans({'%number%': position + 1}) }}">
+                                <img src="{{ path('web_purchase_image', {id: receipt.id, position: position}) }}" alt="{{ 'Фото чека'|trans }} {{ position + 1 }}" loading="lazy">
+                            </button>
+                        {% endfor %}
+                    </div>
                     <dialog class="lightbox" data-lightbox aria-label="{{ 'Фото чека'|trans }}">
                         <form method="dialog" class="lightbox__bar">
                             <span class="hint">{{ 'Клик по фото — крупнее или мельче. Esc — закрыть.'|trans }}</span>
                             <button class="button" type="submit">{{ 'Закрыть'|trans }}</button>
                         </form>
-                        <img class="lightbox__image" src="{{ path('web_purchase_image', {id: receipt.id}) }}" alt="{{ 'Фото чека'|trans }}" data-lightbox-image>
+                        {% for position in positions %}
+                            <img class="lightbox__image" src="{{ path('web_purchase_image', {id: receipt.id, position: position}) }}" alt="{{ 'Фото чека'|trans }} {{ position + 1 }}" data-lightbox-image>
+                        {% endfor %}
                     </dialog>
                 </div>
             {% elseif receipt.sourceText %}

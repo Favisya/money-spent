@@ -222,7 +222,7 @@ final class ReceiptReadersTest extends TestCase
 
     private function photo(): ReceiptInput
     {
-        return ReceiptInput::photo(ReceiptImage::fromBytes((string) base64_decode(self::PNG, true)));
+        return ReceiptInput::photos([ReceiptImage::fromBytes((string) base64_decode(self::PNG, true))]);
     }
 
     private function context(): ReadingContext

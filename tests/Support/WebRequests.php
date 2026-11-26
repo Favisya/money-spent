@@ -52,8 +52,8 @@ trait WebRequests
     }
 
     /**
-     * @param array<string, mixed>        $data
-     * @param array<string, UploadedFile> $files
+     * @param array<string, mixed>                           $data
+     * @param array<string, UploadedFile|list<UploadedFile>> $files
      */
     private function upload(string $uri, array $data, array $files): Response
     {

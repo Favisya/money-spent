@@ -186,27 +186,71 @@
     document.querySelectorAll('[data-recognize]').forEach((form) => {
         const zone = form.querySelector('[data-dropzone]');
         const input = form.querySelector('[data-photo]');
-        const preview = form.querySelector('[data-preview]');
+        const previews = form.querySelector('[data-previews]');
+        const limitNote = form.querySelector('[data-limit-note]');
         const button = form.querySelector('button[type="submit"]');
+        const label = button.textContent;
+        const max = Number(input.dataset.max || 8);
+        const pending = [];
+
         const markBusy = () => {
             button.disabled = true;
             button.textContent = button.dataset.busyText || button.textContent;
             form.classList.add('is-busy');
         };
-        const accept = async (file) => {
-            if (!file || form.classList.contains('is-busy') || button.disabled) {
+
+        // The chosen photos live here, not in the file input: every drop, pick or paste adds to them, and the input
+        // is refilled from this list so the form posts them all in the order they came.
+        const render = () => {
+            const transfer = new DataTransfer();
+
+            pending.forEach((item) => transfer.items.add(item.file));
+            input.files = transfer.files;
+            previews.replaceChildren(...pending.map((item, index) => {
+                const entry = document.createElement('li');
+                const image = document.createElement('img');
+                const remove = document.createElement('button');
+
+                image.src = item.url;
+                image.alt = '';
+                remove.type = 'button';
+                remove.className = 'shots__remove';
+                remove.textContent = '×';
+                remove.setAttribute('aria-label', previews.dataset.removeLabel || '×');
+                remove.addEventListener('click', () => {
+                    URL.revokeObjectURL(item.url);
+                    pending.splice(index, 1);
+                    render();
+                });
+                entry.append(image, remove);
+
+                return entry;
+            }));
+            previews.hidden = pending.length === 0;
+            button.textContent = pending.length === 0
+                ? label
+                : (button.dataset.countText || label).replace('%count%', String(pending.length));
+        };
+
+        const accept = async (files) => {
+            const images = Array.from(files || []).filter((file) => file && file.type.startsWith('image/'));
+
+            if (images.length === 0 || form.classList.contains('is-busy')) {
                 return;
             }
 
-            const prepared = await toJpeg(file);
-            const transfer = new DataTransfer();
+            const room = Math.max(0, max - pending.length);
 
-            transfer.items.add(prepared);
-            input.files = transfer.files;
-            preview.src = URL.createObjectURL(prepared);
-            preview.hidden = false;
-            markBusy();
-            form.submit();
+            limitNote.hidden = images.length <= room;
+
+            for (const file of images.slice(0, room)) {
+                const prepared = await toJpeg(file);
+
+                pending.push({file: prepared, url: URL.createObjectURL(prepared)});
+            }
+
+            render();
+            button.focus();
         };
 
         ['dragenter', 'dragover'].forEach((type) => zone.addEventListener(type, (event) => {
@@ -217,21 +261,26 @@
             event.preventDefault();
             zone.classList.remove('is-over');
         }));
-        zone.addEventListener('drop', (event) => accept(event.dataTransfer && event.dataTransfer.files[0]));
-        input.addEventListener('change', () => accept(input.files[0]));
+        zone.addEventListener('drop', (event) => accept(event.dataTransfer && event.dataTransfer.files));
+        input.addEventListener('change', () => {
+            const chosen = Array.from(input.files);
 
-        // A screenshot copied to the clipboard (⌘⇧⌃4 on a Mac) is pasted anywhere on the page; pasted text still goes
-        // into the list as usual.
-        document.addEventListener('paste', (event) => {
-            const items = Array.from((event.clipboardData && event.clipboardData.items) || []);
-            const image = items.find((item) => item.kind === 'file' && item.type.startsWith('image/'));
-
-            if (image) {
-                event.preventDefault();
-                accept(image.getAsFile());
-            }
+            render();
+            accept(chosen);
         });
         form.addEventListener('submit', markBusy);
+
+        // A screenshot copied to the clipboard (⌘⇧⌃4 on a Mac) is pasted anywhere on the page, one after another;
+        // pasted text still goes into the list as usual.
+        document.addEventListener('paste', (event) => {
+            const items = Array.from((event.clipboardData && event.clipboardData.items) || []);
+            const images = items.filter((item) => item.kind === 'file' && item.type.startsWith('image/'));
+
+            if (images.length > 0) {
+                event.preventDefault();
+                accept(images.map((item) => item.getAsFile()));
+            }
+        });
 
         // A photo dropped next to the zone must not open in the window instead of being uploaded.
         ['dragover', 'drop'].forEach((type) => document.addEventListener(type, (event) => event.preventDefault()));
@@ -298,11 +347,23 @@
     });
 
     document.querySelectorAll('[data-lightbox]').forEach((dialog) => {
-        const opener = dialog.parentElement.querySelector('[data-lightbox-open]');
-        const image = dialog.querySelector('[data-lightbox-image]');
+        const images = Array.from(dialog.querySelectorAll('[data-lightbox-image]'));
 
-        opener.addEventListener('click', () => dialog.showModal());
-        image.addEventListener('click', () => image.classList.toggle('is-zoomed'));
+        dialog.parentElement.querySelectorAll('[data-lightbox-open]').forEach((opener) => {
+            opener.addEventListener('click', () => {
+                const image = images[Number(opener.dataset.lightboxOpen || 0)];
+
+                dialog.showModal();
+                dialog.scrollTop = 0;
+
+                // Photos above the chosen one must have their height before it can be scrolled to.
+                if (image && image !== images[0]) {
+                    Promise.all(images.map((item) => item.decode().catch(() => null)))
+                        .then(() => image.scrollIntoView({block: 'start'}));
+                }
+            });
+        });
+        images.forEach((image) => image.addEventListener('click', () => image.classList.toggle('is-zoomed')));
         // A click on the dimmed backdrop lands on the dialog itself and closes it, like Esc and the button.
         dialog.addEventListener('click', (event) => {
             if (event.target === dialog) {

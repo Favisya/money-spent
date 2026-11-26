@@ -111,14 +111,10 @@ final readonly class OpenAiReceiptReader implements ReceiptReader
     {
         $content = [['type' => 'input_text', 'text' => ReceiptPrompt::request($input)]];
 
-        if ($input->image !== null) {
+        foreach ($input->images as $image) {
             $content[] = [
                 'type'      => 'input_image',
-                'image_url' => sprintf(
-                    'data:%s;base64,%s',
-                    $input->image->mediaType,
-                    base64_encode($input->image->bytes),
-                ),
+                'image_url' => sprintf('data:%s;base64,%s', $image->mediaType, base64_encode($image->bytes)),
             ];
         }
 

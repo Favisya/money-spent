@@ -803,7 +803,23 @@ form.block .button--quiet { margin-top: 0.85rem; }
 .dropzone__input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .dropzone__title { font-weight: 600; }
 .dropzone__hint { font-size: 0.85rem; }
-.dropzone__preview { max-height: 9rem; max-width: 100%; border-radius: var(--radius); }
+.shots { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: 0.6rem 0 0; padding: 0; }
+.shots li { position: relative; }
+.shots img { display: block; height: 6.5rem; width: auto; max-width: 9rem; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--line); }
+.shots__remove {
+    position: absolute;
+    top: 0.2rem;
+    right: 0.2rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 0;
+    border-radius: 50%;
+    background: rgb(0 0 0 / 0.65);
+    color: #fff;
+    line-height: 1;
+    cursor: pointer;
+}
+.shots__remove:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .receipt-intake.is-busy .dropzone { opacity: 0.6; cursor: progress; }
 .receipt-intake.is-busy .button { cursor: progress; }
 .items .cell-edit { padding: 0.2rem 0; border-bottom-color: var(--line); }
@@ -821,6 +837,8 @@ form.block .button--quiet { margin-top: 0.85rem; }
 .items__total strong { font-size: 1.05rem; }
 .receipt-photo img { display: block; width: 100%; height: auto; border-radius: var(--radius); border: 1px solid var(--line); }
 .receipt-photo__open { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
+.receipt-photo__list--many { display: grid; grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr)); gap: 0.5rem; }
+.receipt-photo__list--many img { aspect-ratio: 3 / 4; object-fit: cover; object-position: top; }
 .receipt-photo__open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .lightbox {
     width: min(96vw, 64rem);
@@ -845,7 +863,7 @@ form.block .button--quiet { margin-top: 0.85rem; }
     background: var(--surface);
     border-bottom: 1px solid var(--line);
 }
-.lightbox__image { display: block; max-width: 100%; max-height: calc(94vh - 3.5rem); margin: 0 auto; cursor: zoom-in; }
+.lightbox__image { display: block; max-width: 100%; max-height: calc(94vh - 3.5rem); margin: 0 auto 0.5rem; cursor: zoom-in; }
 .lightbox__image.is-zoomed { max-width: none; max-height: none; width: 100%; cursor: zoom-out; }
 .source-text { white-space: pre-wrap; font-family: var(--mono); font-size: 0.85rem; margin: 0; }
 .receipt-link { font-size: 0.8rem; margin-left: 0.35rem; }

@@ -27,11 +27,12 @@
             <form class="receipt-intake" method="post" action="{{ path('web_purchase_recognize') }}"
                   enctype="multipart/form-data" data-recognize>
                 <label class="dropzone" data-dropzone>
-                    <input class="dropzone__input" type="file" name="photo" accept="image/*" data-photo>
-                    <span class="dropzone__title">{{ 'Перетащи сюда фото чека или скриншот заказа'|trans }}</span>
-                    <span class="dropzone__hint muted">{{ 'или нажми, чтобы выбрать файл, или вставь скриншот через ⌘V. Чек или заказ из приложения доставки — JPEG, PNG, WebP, HEIC с iPhone, до %max% МБ.'|trans({'%max%': maxPhotoMb}) }}</span>
-                    <img class="dropzone__preview" alt="" hidden data-preview>
+                    <input class="dropzone__input" type="file" name="photos[]" accept="image/*" multiple data-photo data-max="{{ maxPhotos }}">
+                    <span class="dropzone__title">{{ 'Перетащи сюда фото чека или скриншоты заказа'|trans }}</span>
+                    <span class="dropzone__hint muted">{{ 'или нажми, чтобы выбрать, или вставь скриншот через ⌘V — можно несколько раз. Длинный заказ из приложения доставки — несколькими скриншотами, до %count% штук. JPEG, PNG, WebP, HEIC с iPhone, до %max% МБ каждое.'|trans({'%count%': maxPhotos, '%max%': maxPhotoMb}) }}</span>
                 </label>
+                <ol class="shots" hidden data-previews data-remove-label="{{ 'Убрать фото'|trans }}"></ol>
+                <p class="hint" hidden data-limit-note>{{ 'Больше %count% фото за раз не взять — разбери остальные отдельным чеком.'|trans({'%count%': maxPhotos}) }}</p>
 
                 <label class="label" for="purchase-text">{{ 'или впиши, что купил'|trans }}</label>
                 <textarea id="purchase-text" class="input textarea" name="text" rows="6"
@@ -40,7 +41,7 @@
                 {% if error is defined %}<p class="error" role="alert">{{ error|message }}</p>{% endif %}
 
                 <div class="actions">
-                    <button class="button" type="submit" data-busy-text="{{ 'ИИ читает… это до минуты'|trans }}" {{ not ready ? 'disabled' }}>{{ 'Разобрать'|trans }}</button>
+                    <button class="button" type="submit" data-busy-text="{{ 'ИИ читает… это до минуты'|trans }}" data-count-text="{{ 'Разобрать %count% фото'|trans }}" {{ not ready ? 'disabled' }}>{{ 'Разобрать'|trans }}</button>
                     <span class="hint">{{ 'Читает %provider%, модель %model%.'|trans({'%provider%': provider.label, '%model%': model ?: 'по умолчанию'|trans}) }}
                         {% if isHost %}<a href="{{ path('web_ai_settings') }}">{{ 'Настройки ИИ'|trans }}</a>{% endif %}</span>
                 </div>

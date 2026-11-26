@@ -8,6 +8,7 @@ use App\Application\Purchase\AiProvider;
 use App\Application\Purchase\ReceiptContent;
 use App\Application\Purchase\ReceiptDraft;
 use App\Application\Purchase\ReceiptForm;
+use App\Application\Purchase\ReceiptImage;
 use App\Application\Purchase\ReceiptSource;
 use App\Application\Purchase\ReceiptStatus;
 use App\Application\Purchase\ReceiptSummary;
@@ -44,11 +45,11 @@ final readonly class ReceiptRepository
                 <<<'SQL'
                     INSERT INTO receipt (
                         uuid, status, source, provider, store, purchased_at, currency, printed_total_minor,
-                        delivery_minor, source_text, image, image_type
+                        delivery_minor, source_text
                     )
                     VALUES (
                         :uuid, :status, :source, :provider, :store, :purchased_at, :currency, :printed_total,
-                        :delivery, :source_text, :image, :image_type
+                        :delivery, :source_text
                     )
                     RETURNING id
                     SQL,
@@ -63,14 +64,12 @@ final readonly class ReceiptRepository
                     'printed_total' => $content->printedTotal?->minor,
                     'delivery'      => $content->delivery?->minor,
                     'source_text'   => $draft->sourceText,
-                    'image'         => $draft->image?->bytes,
-                    'image_type'    => $draft->image?->mediaType,
                 ],
-                ['image' => ParameterType::LARGE_OBJECT],
             );
 
             $receiptId = Row::int(['id' => $id], 'id');
             $this->insertLines($receiptId, $content->basket);
+            $this->insertImages($receiptId, $draft->images);
 
             return $receiptId;
         });
@@ -94,7 +93,7 @@ final readonly class ReceiptRepository
                 'paid_by_both',
                 'split',
                 'source_text',
-                'image_type',
+                '(SELECT COUNT(*) FROM receipt_image i WHERE i.receipt_id = receipt.id) AS image_count',
                 'created_at',
             )
             ->from('receipt')
@@ -129,7 +128,7 @@ final readonly class ReceiptRepository
             (bool) $row['paid_by_both'],
             SplitType::from(Row::string($row, 'split')),
             Row::nullableString($row, 'source_text'),
-            Row::nullableString($row, 'image_type'),
+            Row::int($row, 'image_count'),
             Row::date($row, 'created_at'),
             $this->expenses->idsByReceipt($id),
         );
@@ -138,15 +137,17 @@ final readonly class ReceiptRepository
     /**
      * @return array{bytes: string, type: string}|null
      */
-    public function image(int $id): ?array
+    public function image(int $id, int $position): ?array
     {
         $row = $this->connection->createQueryBuilder()
-            ->select('image', 'image_type')
-            ->from('receipt')
-            ->where('id = :id')
-            ->andWhere('deleted_at IS NULL')
-            ->andWhere('image IS NOT NULL')
+            ->select('i.image', 'i.image_type')
+            ->from('receipt_image', 'i')
+            ->innerJoin('i', 'receipt', 'r', 'r.id = i.receipt_id')
+            ->where('i.receipt_id = :id')
+            ->andWhere('i.position = :position')
+            ->andWhere('r.deleted_at IS NULL')
             ->setParameter('id', $id, ParameterType::INTEGER)
+            ->setParameter('position', $position, ParameterType::INTEGER)
             ->executeQuery()
             ->fetchAssociative();
 
@@ -229,7 +230,7 @@ final readonly class ReceiptRepository
                 'r.currency',
                 'r.paid_by_both',
                 'p.name AS payer_name',
-                '(r.image IS NOT NULL) AS has_image',
+                'EXISTS (SELECT 1 FROM receipt_image i WHERE i.receipt_id = r.id) AS has_image',
                 'COALESCE((SELECT SUM(i.amount_minor) FROM receipt_item i WHERE i.receipt_id = r.id), 0)'
                 . ' + COALESCE(r.delivery_minor, 0) AS total',
                 '(SELECT COUNT(*) FROM receipt_item i WHERE i.receipt_id = r.id) AS item_count',
@@ -259,6 +260,25 @@ final readonly class ReceiptRepository
             ),
             $rows,
         );
+    }
+
+    /**
+     * @param list<ReceiptImage> $images
+     */
+    private function insertImages(int $receiptId, array $images): void
+    {
+        foreach ($images as $position => $image) {
+            $this->connection->insert(
+                'receipt_image',
+                [
+                    'receipt_id' => $receiptId,
+                    'position'   => $position,
+                    'image'      => $image->bytes,
+                    'image_type' => $image->mediaType,
+                ],
+                ['image' => ParameterType::LARGE_OBJECT],
+            );
+        }
     }
 
     private function insertLines(int $receiptId, Basket $basket): void

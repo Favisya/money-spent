@@ -121,10 +121,15 @@ final class PurchaseController extends AbstractController
         return $this->redirectToRoute('web_purchases', ['ok' => 'deleted']);
     }
 
-    #[Route('/purchases/{id}/image', name: 'web_purchase_image', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function image(int $id): Response
+    #[Route(
+        '/purchases/{id}/image/{position}',
+        name: 'web_purchase_image',
+        requirements: ['id' => '\d+', 'position' => '\d{1,2}'],
+        methods: ['GET'],
+    )]
+    public function image(int $id, int $position): Response
     {
-        $image = $this->receipts->image($id);
+        $image = $this->receipts->image($id, $position);
 
         if ($image === null || !in_array($image['type'], ReceiptImage::TYPES, true)) {
             throw new NotFoundHttpException();
@@ -141,17 +146,29 @@ final class PurchaseController extends AbstractController
 
     private function input(Request $request, string $text): ReceiptInput
     {
-        $photo = $request->files->get('photo');
+        $photos = array_values(array_filter(
+            $request->files->all('photos'),
+            static fn (mixed $photo): bool => $photo instanceof UploadedFile,
+        ));
 
-        if (!$photo instanceof UploadedFile) {
+        if ($photos === []) {
             return ReceiptInput::text($text);
         }
 
-        if (!$photo->isValid()) {
-            throw new UserError('Фото не загрузилось — возможно, оно слишком большое.');
+        if (count($photos) > ReceiptInput::MAX_IMAGES) {
+            throw new UserError('За раз — до %max% фото.', ['%max%' => ReceiptInput::MAX_IMAGES]);
         }
 
-        return ReceiptInput::photo(ReceiptImage::fromBytes($photo->getContent()));
+        return ReceiptInput::photos(array_map(
+            static function (UploadedFile $photo): ReceiptImage {
+                if (!$photo->isValid()) {
+                    throw new UserError('Фото не загрузилось — возможно, оно слишком большое.');
+                }
+
+                return ReceiptImage::fromBytes($photo->getContent());
+            },
+            $photos,
+        ));
     }
 
     private function receipt(int $id): ReceiptView
@@ -185,6 +202,7 @@ final class PurchaseController extends AbstractController
             'isHost'     => DeviceGuard::isLocal($request),
             'text'       => '',
             'maxPhotoMb' => intdiv(ReceiptImage::MAX_BYTES, 1_048_576),
+            'maxPhotos'  => ReceiptInput::MAX_IMAGES,
             'notice'     => null,
             ...$state,
         ], new Response(status: $status));

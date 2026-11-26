@@ -227,7 +227,7 @@ final class WebAppTest extends KernelTestCase
             '/participants' => ['Badge color', 'title="orange"', 'Telegram id'],
             '/sharing'      => ['Connection code', 'Connected Macs', 'Nobody yet.'],
             '/purchases'    => [
-                'Drop a receipt photo or an order screenshot here',
+                'Drop a receipt photo or order screenshots here',
                 'Fill in a receipt by hand',
                 'No receipts yet.',
             ],
