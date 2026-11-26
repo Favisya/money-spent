@@ -7,14 +7,13 @@ namespace App\Tests\Integration;
 use App\Application\Rates\MarketRates;
 use App\Infrastructure\Persistence\ParticipantRepository;
 use App\Tests\Support\StaticRateSource;
+use App\Tests\Support\WebRequests;
 use DateTimeImmutable;
 use Doctrine\DBAL\Connection;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelInterface;
 
 /**
@@ -22,9 +21,7 @@ use Symfony\Component\HttpKernel\KernelInterface;
  */
 final class WebAppTest extends KernelTestCase
 {
-    private const string ORIGIN = 'http://localhost';
-    /** Request::create() pretends to be an English browser; the app is used in Russian. */
-    private const array BROWSER = ['HTTP_ACCEPT_LANGUAGE' => 'ru-RU,ru;q=0.9'];
+    use WebRequests;
 
     private KernelInterface $app;
     private Connection $db;
@@ -229,6 +226,12 @@ final class WebAppTest extends KernelTestCase
             '/import'       => ['Import a note', 'What the sign before the amount means'],
             '/participants' => ['Badge color', 'title="orange"', 'Telegram id'],
             '/sharing'      => ['Connection code', 'Connected Macs', 'Nobody yet.'],
+            '/purchases'    => [
+                'Drop a receipt photo or an order screenshot here',
+                'Fill in a receipt by hand',
+                'No receipts yet.',
+            ],
+            '/settings/ai' => ['Who reads receipts', 'API key', 'claude-opus-5-5'],
         ];
 
         foreach ($expected as $uri => $texts) {
@@ -276,25 +279,6 @@ final class WebAppTest extends KernelTestCase
         $coffee = [...$form, 'text' => "500 кофе\n600 кофе", 'lines' => [1, 2]];
         $two    = (string) $this->post('/import/confirm', $coffee, cookies: $english)->getContent();
         self::assertStringContainsString('Recorded 2 expenses.', $two);
-    }
-
-    /**
-     * Cyrillic words a reader of the English page would see, apart from the participants' names.
-     *
-     * @return list<string>
-     */
-    private function russianLeftovers(string $html): array
-    {
-        $html  = (string) preg_replace('#<span class="avatar[^"]*"[^>]*>[^<]*</span>#u', '', $html);
-        $shown = [strip_tags($html)];
-
-        preg_match_all('/\s(?:title|aria-label|placeholder|data-tip|alt)="([^"]*)"/u', $html, $attributes);
-        array_push($shown, ...$attributes[1]);
-
-        $text = str_replace(['Анна', 'Борис'], '', html_entity_decode(implode("\n", $shown), ENT_QUOTES | ENT_HTML5));
-        preg_match_all('/\p{Cyrillic}+/u', $text, $words);
-
-        return array_values(array_unique($words[0]));
     }
 
     public function testBothPayHalfEach(): void
@@ -1079,32 +1063,4 @@ final class WebAppTest extends KernelTestCase
         ]);
     }
 
-    /**
-     * @param array<string, string> $server
-     * @param array<string, string> $cookies
-     */
-    private function get(string $uri, array $server = [], array $cookies = []): Response
-    {
-        $request = Request::create($uri, 'GET', cookies: $cookies, server: [...self::BROWSER, ...$server]);
-
-        return $this->app->handle($request, HttpKernelInterface::MAIN_REQUEST, true);
-    }
-
-    /**
-     * @param array<string, mixed>       $data
-     * @param array<string, string>|null $server  null means a same-origin browser post
-     * @param array<string, string>      $cookies
-     */
-    private function post(string $uri, array $data, ?array $server = null, array $cookies = []): Response
-    {
-        $request = Request::create(
-            $uri,
-            'POST',
-            $data,
-            $cookies,
-            server: [...self::BROWSER, ...($server ?? ['HTTP_ORIGIN' => self::ORIGIN])],
-        );
-
-        return $this->app->handle($request, HttpKernelInterface::MAIN_REQUEST, true);
-    }
 }

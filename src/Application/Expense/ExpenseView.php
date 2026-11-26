@@ -24,6 +24,7 @@ final readonly class ExpenseView
         public ?string $note,
         public bool $deleted,
         public ?int $recurringId = null,
+        public ?int $receiptId = null,
     ) {
     }
 }

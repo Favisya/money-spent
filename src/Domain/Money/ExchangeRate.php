@@ -11,8 +11,6 @@ final readonly class ExchangeRate
 {
     public const int SCALE = 8;
 
-    private const int WORK_SCALE = 20;
-
     /** @var numeric-string */
     public string $rate;
 
@@ -48,14 +46,14 @@ final readonly class ExchangeRate
             throw CurrencyMismatchException::between($money->currency, $this->currency);
         }
 
-        $value = bcmul((string) $money->minor, $this->rate, self::WORK_SCALE);
+        $value = bcmul((string) $money->minor, $this->rate, DecimalRounding::WORK_SCALE);
         $shift = $this->base->exponent - $this->currency->exponent;
         $power = bcpow('10', (string) abs($shift), 0);
         $value = $shift >= 0
-            ? bcmul($value, $power, self::WORK_SCALE)
-            : bcdiv($value, $power, self::WORK_SCALE);
+            ? bcmul($value, $power, DecimalRounding::WORK_SCALE)
+            : bcdiv($value, $power, DecimalRounding::WORK_SCALE);
 
-        return Money::ofMinor(self::roundHalfAwayFromZero($value), $this->base);
+        return Money::ofMinor(DecimalRounding::halfAwayFromZero($value), $this->base);
     }
 
     /**
@@ -67,28 +65,13 @@ final readonly class ExchangeRate
             throw CurrencyMismatchException::between($money->currency, $this->base);
         }
 
-        $value = bcdiv((string) $money->minor, $this->rate, self::WORK_SCALE);
+        $value = bcdiv((string) $money->minor, $this->rate, DecimalRounding::WORK_SCALE);
         $shift = $this->currency->exponent - $this->base->exponent;
         $power = bcpow('10', (string) abs($shift), 0);
         $value = $shift >= 0
-            ? bcmul($value, $power, self::WORK_SCALE)
-            : bcdiv($value, $power, self::WORK_SCALE);
+            ? bcmul($value, $power, DecimalRounding::WORK_SCALE)
+            : bcdiv($value, $power, DecimalRounding::WORK_SCALE);
 
-        return Money::ofMinor(self::roundHalfAwayFromZero($value), $this->currency);
-    }
-
-    /**
-     * @param numeric-string $value
-     */
-    private static function roundHalfAwayFromZero(string $value): int
-    {
-        $half    = str_starts_with($value, '-') ? '-0.5' : '0.5';
-        $rounded = bcadd(bcadd($value, $half, self::WORK_SCALE), '0', 0);
-
-        if (bccomp($rounded, (string) PHP_INT_MAX, 0) > 0 || bccomp($rounded, (string) PHP_INT_MIN, 0) < 0) {
-            throw InvalidAmountException::overflow();
-        }
-
-        return (int) $rounded;
+        return Money::ofMinor(DecimalRounding::halfAwayFromZero($value), $this->currency);
     }
 }

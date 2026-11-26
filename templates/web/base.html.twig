@@ -17,6 +17,7 @@
             {% set route = app.request.attributes.get('_route') %}
             <a href="{{ path('web_dashboard') }}" {{ route starts with 'web_dashboard' ? 'aria-current="page"' }}>{{ 'Обзор'|trans }}</a>
             <a href="{{ path('web_analytics') }}" {{ route starts with 'web_analytics' ? 'aria-current="page"' }}>{{ 'Аналитика'|trans }}</a>
+            <a href="{{ path('web_purchases') }}" {{ route starts with 'web_purchase' ? 'aria-current="page"' }}>{{ 'Покупки'|trans }}</a>
             <a href="{{ path('web_recurring') }}" {{ route starts with 'web_recurring' ? 'aria-current="page"' }}>{{ 'Регулярные'|trans }}</a>
             <a href="{{ path('web_import') }}" {{ route starts with 'web_import' ? 'aria-current="page"' }}>{{ 'Импорт'|trans }}</a>
             <a href="{{ path('web_categories') }}" {{ route starts with 'web_categor' ? 'aria-current="page"' }}>{{ 'Категории'|trans }}</a>

@@ -15,6 +15,7 @@ use App\Domain\Money\ExchangeRate;
 use App\Domain\Money\Money;
 use App\Domain\Split\SplitType;
 use DateTimeImmutable;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
 use Doctrine\DBAL\Query\QueryBuilder;
@@ -110,6 +111,42 @@ final readonly class ExpenseRepository
             ->fetchAllAssociative();
 
         return array_map($this->hydrateView(...), $rows);
+    }
+
+    /**
+     * @param list<int> $ids
+     */
+    public function linkReceipt(array $ids, int $receiptId): void
+    {
+        if ($ids === []) {
+            return;
+        }
+
+        $this->connection->createQueryBuilder()
+            ->update('expense')
+            ->set('receipt_id', ':receipt_id')
+            ->where('id IN (:ids)')
+            ->setParameter('receipt_id', $receiptId, ParameterType::INTEGER)
+            ->setParameter('ids', $ids, ArrayParameterType::INTEGER)
+            ->executeStatement();
+    }
+
+    /**
+     * @return list<int> active expenses recorded from the receipt
+     */
+    public function idsByReceipt(int $receiptId): array
+    {
+        $ids = $this->connection->createQueryBuilder()
+            ->select('id')
+            ->from('expense')
+            ->where('receipt_id = :receipt_id')
+            ->andWhere('deleted_at IS NULL')
+            ->orderBy('id')
+            ->setParameter('receipt_id', $receiptId, ParameterType::INTEGER)
+            ->executeQuery()
+            ->fetchFirstColumn();
+
+        return array_map(static fn (mixed $id): int => Row::int(['id' => $id], 'id'), $ids);
     }
 
     public function updateNote(int $id, ?string $note): void
@@ -398,6 +435,7 @@ final readonly class ExpenseRepository
                 'e.note',
                 'e.deleted_at',
                 'e.recurring_id',
+                'e.receipt_id',
             )
             ->from('expense', 'e')
             ->innerJoin('e', 'participant', 'p', 'p.id = e.payer_id')
@@ -425,6 +463,7 @@ final readonly class ExpenseRepository
             Row::nullableString($row, 'note'),
             Row::nullableString($row, 'deleted_at') !== null,
             Row::nullableInt($row, 'recurring_id'),
+            Row::nullableInt($row, 'receipt_id'),
         );
     }
 }

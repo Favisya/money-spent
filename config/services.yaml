@@ -11,6 +11,7 @@ services:
             string $timezone: '%app.timezone%'
             string $webhookSecret: '%env(TELEGRAM_WEBHOOK_SECRET)%'
             string $appSecret: '%kernel.secret%'
+            string $purchaseCategoryCode: '%app.purchase_category%'
 
     App\:
         resource: '../src/'
@@ -59,3 +60,14 @@ services:
         arguments:
             $currencies: '%app.reference.currencies%'
             $categories: '%app.reference.categories%'
+
+    # Calls to Claude and OpenAI: long timeouts for photos, no framework logging (requests carry API keys).
+    ai.http_client:
+        class: Symfony\Contracts\HttpClient\HttpClientInterface
+        factory: ['Symfony\Component\HttpClient\HttpClient', 'create']
+        arguments:
+            - { timeout: 120, max_duration: 180 }
+
+    ai.psr18_client:
+        class: Symfony\Component\HttpClient\Psr18Client
+        arguments: ['@ai.http_client']

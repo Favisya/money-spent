@@ -19,3 +19,9 @@ services:
     App\Application\Rates\MarketRates:
         arguments:
             $cbr: '@App\Tests\Support\StaticCbrSource'
+
+    App\Tests\Support\FakeReceiptReader:
+        tags: ['app.receipt_reader']
+
+    App\Infrastructure\Ai\ClaudeReceiptReader:
+        alias: App\Tests\Support\FakeReceiptReader

@@ -1,0 +1,156 @@
+{% extends 'web/base.html.twig' %}
+
+{% block title %}{{ receipt.content.store ?? ('Чек'|trans) }} — {{ 'Покупки'|trans }}{% endblock %}
+
+{% block body %}
+    {% import _self as receipt_form %}
+    {% set content = receipt.content %}
+    <div class="pagehead">
+        <p><a href="{{ path('web_purchases') }}">← {{ 'Все покупки'|trans }}</a></p>
+        <h1>{{ content.store ?? ('Чек'|trans) }} <span class="muted num">{{ content.purchasedAt|date('d.m.Y') }}</span></h1>
+        <p class="muted">
+            {% if receipt.isDraft %}{{ 'Черновик: трата появится после сохранения.'|trans }}
+            {% elseif receipt.expenseIds is empty %}{{ 'Трата этого чека удалена. Сохрани чек, чтобы записать её снова.'|trans }}
+            {% else %}{{ 'Трата записана. Правки чека меняют и её.'|trans }}{% endif %}
+            {% if receipt.provider %}{{ 'Распознал %provider%.'|trans({'%provider%': receipt.provider.label}) }}{% endif %}
+        </p>
+    </div>
+
+    {% if notice %}<p class="notice" role="status">{{ notice|trans }}</p>{% endif %}
+    {% if error is defined %}<p class="error" role="alert">{{ error|message }}</p>{% endif %}
+
+    <div class="layout">
+        <form class="layout__main block receipt-form" method="post" action="{{ path('web_purchase_save', {id: receipt.id}) }}"
+              data-receipt data-exponent="{{ content.basket.currency.exponent }}">
+            <div class="grid3">
+                <div>
+                    <label class="label" for="r-store">{{ 'Магазин'|trans }}</label>
+                    <input id="r-store" class="input" name="store" maxlength="128" value="{{ fields.store }}">
+                </div>
+                <div>
+                    <label class="label" for="r-date">{{ 'Дата покупки'|trans }}</label>
+                    <input id="r-date" class="input" type="date" name="date" value="{{ fields.date }}" max="{{ 'now'|date('Y-m-d') }}" required>
+                </div>
+                <div>
+                    <label class="label" for="r-currency">{{ 'Валюта'|trans }}</label>
+                    <select id="r-currency" class="input" name="currency">
+                        {% for c in currencies %}
+                            <option value="{{ c.currency.code }}" {{ c.currency.code == fields.currency ? 'selected' }}>{{ c.currency.code }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="label" for="r-payer">{{ 'Кто платил'|trans }}</label>
+                    <select id="r-payer" class="input" name="payer" required>
+                        <option value="" disabled {{ fields.payer == '' ? 'selected' }}>{{ 'выбери'|trans }}</option>
+                        {% for p in participants %}
+                            <option value="{{ p.id }}" {{ fields.payer == p.id ~ '' ? 'selected' }}>{{ p.name }}</option>
+                        {% endfor %}
+                        {% if participants|length > 1 %}
+                            <option value="{{ both }}" {{ fields.payer == both ? 'selected' }}>{{ 'оба, пополам'|trans }}</option>
+                        {% endif %}
+                    </select>
+                </div>
+                <div>
+                    <label class="label" for="r-split">{{ 'Чья покупка'|trans }}</label>
+                    <select id="r-split" class="input" name="split">
+                        <option value="equal" {{ fields.split == 'equal' ? 'selected' }}>{{ 'общая'|trans }}</option>
+                        <option value="payer_only" {{ fields.split == 'payer_only' ? 'selected' }}>{{ 'только того, кто платил'|trans }}</option>
+                        {% if participants|length > 1 %}
+                            <option value="other_only" {{ fields.split == 'other_only' ? 'selected' }}>{{ 'за другого'|trans }}</option>
+                        {% endif %}
+                    </select>
+                </div>
+                <div>
+                    <label class="label" for="r-printed">{{ 'Итог по чеку'|trans }}</label>
+                    <input id="r-printed" class="input num" name="printed_total" inputmode="decimal" maxlength="20" value="{{ fields.printed_total }}">
+                </div>
+            </div>
+
+            <div class="scroll">
+                <table class="ledger items">
+                    <thead>
+                    <tr>
+                        <th scope="col">{{ 'Что куплено'|trans }}</th>
+                        <th scope="col" class="r">{{ 'Сколько'|trans }}</th>
+                        <th scope="col">{{ 'Ед.'|trans }}</th>
+                        <th scope="col" class="r">{{ 'Цена за ед.'|trans }}</th>
+                        <th scope="col" class="r">{{ 'Сумма'|trans }}</th>
+                        <th scope="col"><span class="sr">{{ 'Удалить'|trans }}</span></th>
+                    </tr>
+                    </thead>
+                    <tbody data-rows>
+                    {% for row in rows %}
+                        {{ receipt_form.item(loop.index0, row) }}
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <template data-row-template>{{ receipt_form.item('__i__', {name: '', quantity: '', unit: 'pcs', price: '', amount: ''}) }}</template>
+
+            <div class="items__foot">
+                <button class="link" type="button" data-add-row>+ {{ 'строка'|trans }}</button>
+                <label class="items__delivery">
+                    <span>{{ 'Доставка и сервис'|trans }}</span>
+                    <input class="cell-edit cell-edit--amount num" name="delivery" inputmode="decimal" maxlength="20" value="{{ fields.delivery }}" placeholder="0" data-delivery>
+                </label>
+            </div>
+            <p class="items__total">
+                <span class="muted" data-parts {{ content.delivery ? '' : 'hidden' }}>{{ 'позиции'|trans }} <span class="num" data-items-total>{{ content.basket.total|money_number }}</span> + {{ 'доставка'|trans }} <span class="num" data-delivery-total>{{ content.delivery ? content.delivery|money_number : '0' }}</span> =</span>
+                {{ 'Итого:'|trans }} <strong class="num" data-total>{{ content.total|money_number }}</strong> {{ content.basket.currency.code }}
+            </p>
+            {% if difference is not null and not difference.isZero %}
+                <p class="warn">{{ 'Итого расходится с суммой по чеку на %amount% — проверь, не пропущена ли строка, скидка или доставка.'|trans({'%amount%': difference|money}) }}</p>
+            {% endif %}
+
+            <div class="actions">
+                <button class="button" type="submit">{{ receipt.isDraft ? 'Сохранить и записать трату'|trans : 'Сохранить'|trans }}</button>
+                <span class="hint">{{ 'Пустые строки не сохраняются. Цену или сумму можно не указывать одну из двух — вторая посчитается.'|trans }}</span>
+            </div>
+        </form>
+
+        <aside class="layout__side">
+            {% if receipt.hasImage %}
+                <div class="block receipt-photo">
+                    <h2>{{ 'Фото чека'|trans }}</h2>
+                    <button class="receipt-photo__open" type="button" data-lightbox-open aria-label="{{ 'Открыть фото крупно'|trans }}">
+                        <img src="{{ path('web_purchase_image', {id: receipt.id}) }}" alt="{{ 'Фото чека'|trans }}" loading="lazy">
+                    </button>
+                    <dialog class="lightbox" data-lightbox aria-label="{{ 'Фото чека'|trans }}">
+                        <form method="dialog" class="lightbox__bar">
+                            <span class="hint">{{ 'Клик по фото — крупнее или мельче. Esc — закрыть.'|trans }}</span>
+                            <button class="button" type="submit">{{ 'Закрыть'|trans }}</button>
+                        </form>
+                        <img class="lightbox__image" src="{{ path('web_purchase_image', {id: receipt.id}) }}" alt="{{ 'Фото чека'|trans }}" data-lightbox-image>
+                    </dialog>
+                </div>
+            {% elseif receipt.sourceText %}
+                <div class="block">
+                    <h2>{{ 'Исходный список'|trans }}</h2>
+                    <pre class="source-text">{{ receipt.sourceText }}</pre>
+                </div>
+            {% endif %}
+            <form class="block" method="post" action="{{ path('web_purchase_delete', {id: receipt.id}) }}"
+                  data-confirm="{{ 'Удалить чек вместе с его тратой?'|trans }}">
+                <button class="link link--danger" type="submit">{{ 'Удалить чек и трату'|trans }}</button>
+            </form>
+        </aside>
+    </div>
+{% endblock %}
+
+{% macro item(index, row) %}
+    <tr class="{{ row.remove|default('') == '1' ? 'is-removed' }}" data-row>
+        <td><input class="cell-edit cell-edit--name" name="items[{{ index }}][name]" maxlength="255" value="{{ row.name|default('') }}" aria-label="{{ 'Что куплено'|trans }}"></td>
+        <td class="r"><input class="cell-edit cell-edit--qty num" name="items[{{ index }}][quantity]" inputmode="decimal" maxlength="12" value="{{ row.quantity|default('') }}" placeholder="1" aria-label="{{ 'Сколько'|trans }}" data-qty></td>
+        <td>
+            <select class="select-bare" name="items[{{ index }}][unit]" aria-label="{{ 'Единица'|trans }}">
+                {% for u, label in {'pcs': 'шт', 'kg': 'кг', 'g': 'г', 'l': 'л', 'ml': 'мл'} %}
+                    <option value="{{ u }}" {{ row.unit|default('pcs') == u ? 'selected' }}>{{ label|trans }}</option>
+                {% endfor %}
+            </select>
+        </td>
+        <td class="r"><input class="cell-edit cell-edit--amount num" name="items[{{ index }}][price]" inputmode="decimal" maxlength="20" value="{{ row.price|default('') }}" aria-label="{{ 'Цена за единицу'|trans }}" data-price></td>
+        <td class="r"><input class="cell-edit cell-edit--amount num" name="items[{{ index }}][amount]" inputmode="decimal" maxlength="20" value="{{ row.amount|default('') }}" aria-label="{{ 'Сумма строки'|trans }}" data-amount></td>
+        <td><label class="remove"><input type="checkbox" name="items[{{ index }}][remove]" value="1" {{ row.remove|default('') == '1' ? 'checked' }} data-remove><span class="sr">{{ 'Удалить строку'|trans }}</span><span aria-hidden="true">×</span></label></td>
+    </tr>
+{% endmacro %}

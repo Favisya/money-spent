@@ -1,6 +1,7 @@
 parameters:
     app.base_currency: 'AMD'
     app.default_category: 'other'
+    app.purchase_category: 'groceries'
 
     app.reference.currencies:
         - code: 'AMD'

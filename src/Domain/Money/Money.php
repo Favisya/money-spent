@@ -96,6 +96,20 @@ final readonly class Money
         return $result;
     }
 
+    /**
+     * The amount times a decimal factor (a quantity such as "1.5"), rounded half away from zero to minor units.
+     */
+    public function multiply(string $factor): self
+    {
+        if (!is_numeric($factor) || preg_match('/^-?\d+(\.\d+)?$/', $factor) !== 1) {
+            throw new InvalidArgumentException(sprintf('Invalid factor "%s".', $factor));
+        }
+
+        $value = bcmul((string) $this->minor, $factor, DecimalRounding::WORK_SCALE);
+
+        return new self(DecimalRounding::halfAwayFromZero($value), $this->currency);
+    }
+
     public function isZero(): bool
     {
         return $this->minor === 0;

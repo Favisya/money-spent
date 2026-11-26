@@ -16,7 +16,7 @@ final class SecurityHeaders
         'X-Content-Type-Options'  => 'nosniff',
         'Referrer-Policy'         => 'same-origin',
         'Content-Security-Policy' => "default-src 'self'; script-src 'self' 'unsafe-inline'; "
-            . "style-src 'self' 'unsafe-inline'; img-src 'self' data:; form-action 'self'; "
+            . "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; form-action 'self'; "
             . "frame-ancestors 'none'; base-uri 'none'",
     ];
 

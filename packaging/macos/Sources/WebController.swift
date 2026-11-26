@@ -238,7 +238,7 @@ final class WebController: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownl
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = parameters.allowsMultipleSelection
-        panel.allowedContentTypes = [.plainText, .text]
+        panel.allowedContentTypes = [.plainText, .text, .image]
         completionHandler(panel.runModal() == .OK ? panel.urls : nil)
     }
 

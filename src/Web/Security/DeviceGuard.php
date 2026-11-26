@@ -25,7 +25,7 @@ final readonly class DeviceGuard
     private const array LOOPBACK      = ['127.0.0.1', '::1'];
     private const array OPEN_PATHS    = ['/pair', '/health'];
     private const string WEBHOOK_PATH = '/telegram/';
-    private const string HOST_ONLY    = '/sharing';
+    private const array HOST_ONLY     = ['/sharing', '/settings'];
 
     public function __construct(
         private Pairing $pairing,
@@ -35,6 +35,17 @@ final readonly class DeviceGuard
     public static function isLocal(Request $request): bool
     {
         return in_array($request->server->getString('REMOTE_ADDR'), self::LOOPBACK, true);
+    }
+
+    public static function isHostOnly(string $path): bool
+    {
+        foreach (self::HOST_ONLY as $prefix) {
+            if (str_starts_with($path, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function __invoke(RequestEvent $event): void
@@ -61,7 +72,7 @@ final readonly class DeviceGuard
             return;
         }
 
-        if (str_starts_with($path, self::HOST_ONLY)) {
+        if (self::isHostOnly($path)) {
             $event->setResponse(new Response('Only on the host Mac.', Response::HTTP_FORBIDDEN));
 
             return;

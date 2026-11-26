@@ -779,3 +779,83 @@ form.block .button--quiet { margin-top: 0.85rem; }
 .figures__wholes tr:first-child th, .figures__wholes tr:first-child td { border-top: 1px solid var(--line); padding-top: 0.5rem; }
 .share { border-bottom: 1px dotted var(--faint); }
 .owners__item--whole { border-style: dashed; }
+
+/* Purchases: receipt intake and the receipt editor */
+.notice--warn { border-left-color: var(--warn); background: transparent; border: 1px solid var(--line); border-left: 3px solid var(--warn); }
+.tag--warn { color: var(--warn); border-color: currentColor; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem 1rem; margin-bottom: 1rem; }
+.steps { margin: 0; padding-left: 1.2rem; color: var(--muted); }
+.steps li + li { margin-top: 0.5rem; }
+.dropzone {
+    display: grid;
+    gap: 0.25rem;
+    place-items: center;
+    text-align: center;
+    min-height: 9.5rem;
+    padding: 1.25rem;
+    border: 1.5px dashed var(--faint);
+    border-radius: var(--radius);
+    background: var(--bg);
+    cursor: pointer;
+    transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+.dropzone:hover, .dropzone.is-over, .dropzone:focus-within { border-color: var(--accent); background: var(--accent-soft); }
+.dropzone__input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.dropzone__title { font-weight: 600; }
+.dropzone__hint { font-size: 0.85rem; }
+.dropzone__preview { max-height: 9rem; max-width: 100%; border-radius: var(--radius); }
+.receipt-intake.is-busy .dropzone { opacity: 0.6; cursor: progress; }
+.receipt-intake.is-busy .button { cursor: progress; }
+.items .cell-edit { padding: 0.2rem 0; border-bottom-color: var(--line); }
+.items .cell-edit--name { width: 100%; min-width: 12rem; }
+.items .cell-edit--qty { width: 4rem; text-align: right; }
+.items tr.is-removed td { opacity: 0.45; }
+.items tr.is-removed .cell-edit--name { text-decoration: line-through; }
+.items .remove { cursor: pointer; color: var(--faint); padding: 0 0.3rem; }
+.items .remove input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.items .remove:hover, .items tr.is-removed .remove { color: var(--danger); }
+.items__foot { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin: 0.6rem 0; }
+.items__delivery { display: inline-flex; align-items: baseline; gap: 0.5rem; color: var(--muted); font-size: 0.9rem; }
+.items__delivery .cell-edit { width: 7rem; text-align: right; }
+.items__total { margin: 0 0 0.6rem; text-align: right; }
+.items__total strong { font-size: 1.05rem; }
+.receipt-photo img { display: block; width: 100%; height: auto; border-radius: var(--radius); border: 1px solid var(--line); }
+.receipt-photo__open { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
+.receipt-photo__open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lightbox {
+    width: min(96vw, 64rem);
+    max-width: 96vw;
+    max-height: 94vh;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: inherit;
+    overflow: auto;
+}
+.lightbox::backdrop { background: rgb(0 0 0 / 0.7); }
+.lightbox__bar {
+    position: sticky;
+    top: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+}
+.lightbox__image { display: block; max-width: 100%; max-height: calc(94vh - 3.5rem); margin: 0 auto; cursor: zoom-in; }
+.lightbox__image.is-zoomed { max-width: none; max-height: none; width: 100%; cursor: zoom-out; }
+.source-text { white-space: pre-wrap; font-family: var(--mono); font-size: 0.85rem; margin: 0; }
+.receipt-link { font-size: 0.8rem; margin-left: 0.35rem; }
+.ai-provider { border: 0; border-top: 1px solid var(--line); padding: 1rem 0 0; margin: 1rem 0 0; }
+.ai-provider legend h2 { margin: 0; font-size: 1rem; }
+
+@media (max-width: 860px) {
+    .grid3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dropzone { transition: none; }
+}

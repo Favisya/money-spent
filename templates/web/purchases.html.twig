@@ -1,0 +1,97 @@
+{% extends 'web/base.html.twig' %}
+
+{% block title %}{{ 'Покупки'|trans }} — {{ 'Траты'|trans }}{% endblock %}
+
+{% block body %}
+    <div class="pagehead">
+        <h1>{{ 'Покупки'|trans }}</h1>
+        <p class="muted measure">{{ 'Перетащи фото чека или впиши список покупок — ИИ разберёт, что куплено, сколько штук или килограммов и почём. Проверишь позиции, сохранишь — и чек станет тратой в «Продуктах».'|trans }}</p>
+    </div>
+
+    {% if notice %}<p class="notice" role="status">{{ notice|trans }}</p>{% endif %}
+
+    {% if not ready %}
+        <p class="notice notice--warn" role="status">
+            {% if isHost %}
+                {{ 'Чтобы ИИ читал чеки, выбери в настройках ИИ Claude Code или Codex по подписке либо добавь API-ключ.'|trans }}
+                <a href="{{ path('web_ai_settings') }}">{{ 'Настройки ИИ'|trans }}</a>.
+            {% else %}
+                {{ 'ИИ ещё не настроен: это делается на основном Mac, в настройках ИИ.'|trans }}
+            {% endif %}
+            {{ 'Без ИИ чек можно заполнить вручную.'|trans }}
+        </p>
+    {% endif %}
+
+    <div class="layout">
+        <section class="layout__main block">
+            <form class="receipt-intake" method="post" action="{{ path('web_purchase_recognize') }}"
+                  enctype="multipart/form-data" data-recognize>
+                <label class="dropzone" data-dropzone>
+                    <input class="dropzone__input" type="file" name="photo" accept="image/*" data-photo>
+                    <span class="dropzone__title">{{ 'Перетащи сюда фото чека или скриншот заказа'|trans }}</span>
+                    <span class="dropzone__hint muted">{{ 'или нажми, чтобы выбрать файл, или вставь скриншот через ⌘V. Чек или заказ из приложения доставки — JPEG, PNG, WebP, HEIC с iPhone, до %max% МБ.'|trans({'%max%': maxPhotoMb}) }}</span>
+                    <img class="dropzone__preview" alt="" hidden data-preview>
+                </label>
+
+                <label class="label" for="purchase-text">{{ 'или впиши, что купил'|trans }}</label>
+                <textarea id="purchase-text" class="input textarea" name="text" rows="6"
+                          placeholder="{{ 'молоко 2 л 1200\nяблоки 1,5 кг 900\nхлеб 450\nсыр 0,3 кг'|trans }}">{{ text }}</textarea>
+
+                {% if error is defined %}<p class="error" role="alert">{{ error|message }}</p>{% endif %}
+
+                <div class="actions">
+                    <button class="button" type="submit" data-busy-text="{{ 'ИИ читает… это до минуты'|trans }}" {{ not ready ? 'disabled' }}>{{ 'Разобрать'|trans }}</button>
+                    <span class="hint">{{ 'Читает %provider%, модель %model%.'|trans({'%provider%': provider.label, '%model%': model ?: 'по умолчанию'|trans}) }}
+                        {% if isHost %}<a href="{{ path('web_ai_settings') }}">{{ 'Настройки ИИ'|trans }}</a>{% endif %}</span>
+                </div>
+            </form>
+            <form method="post" action="{{ path('web_purchase_blank') }}" class="inline">
+                <button class="link" type="submit">{{ 'Заполнить чек вручную, без ИИ'|trans }}</button>
+            </form>
+        </section>
+
+        <aside class="layout__side block">
+            <h2>{{ 'Как это работает'|trans }}</h2>
+            <ol class="steps">
+                <li>{{ 'ИИ выписывает позиции: название, количество (шт, кг, г, л, мл), цену и сумму строки. Скидки — отдельной строкой с минусом.'|trans }}</li>
+                <li>{{ 'Ты правишь, что не так, удаляешь лишнее, добавляешь забытое.'|trans }}</li>
+                <li>{{ 'При сохранении записывается одна трата в «Продуктах» на сумму позиций и доставки. Правки чека потом меняют и трату.'|trans }}</li>
+            </ol>
+        </aside>
+    </div>
+
+    <section class="block">
+        <div class="block__head"><h2>{{ 'Чеки'|trans }}</h2></div>
+        {% if receipts is empty %}
+            <div class="empty"><p class="muted">{{ 'Чеков пока нет. Перетащи первый — он появится здесь.'|trans }}</p></div>
+        {% else %}
+            <table class="ledger">
+                <thead>
+                <tr>
+                    <th scope="col">{{ 'Дата'|trans }}</th>
+                    <th scope="col">{{ 'Магазин'|trans }}</th>
+                    <th scope="col" class="r">{{ 'Позиций'|trans }}</th>
+                    <th scope="col">{{ 'Платил'|trans }}</th>
+                    <th scope="col" class="r">{{ 'Сумма'|trans }}</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for r in receipts %}
+                    <tr>
+                        <td class="num">{{ r.purchasedAt|date('d.m.Y') }}</td>
+                        <td>
+                            <a href="{{ path('web_purchase', {id: r.id}) }}">{{ r.store ?? ('Без названия'|trans) }}</a>
+                            {% if r.status.value == 'draft' %}<span class="tag tag--warn">{{ 'черновик'|trans }}</span>
+                            {% elseif not r.hasExpense %}<span class="tag tag--warn">{{ 'трата удалена'|trans }}</span>{% endif %}
+                            {% if r.hasImage %}<span class="tag">{{ 'фото'|trans }}</span>{% endif %}
+                        </td>
+                        <td class="r num">{{ r.itemCount }}</td>
+                        <td>{% if r.paidByBoth %}{{ 'оба пополам'|trans }}{% else %}{{ r.payerName ?? '—' }}{% endif %}</td>
+                        <td class="r num">{{ r.total|money }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </section>
+{% endblock %}

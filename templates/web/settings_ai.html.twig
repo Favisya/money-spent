@@ -1,0 +1,53 @@
+{% extends 'web/base.html.twig' %}
+
+{% block title %}{{ 'Настройки ИИ'|trans }} — {{ 'Траты'|trans }}{% endblock %}
+
+{% block body %}
+    <div class="pagehead">
+        <p><a href="{{ path('web_purchases') }}">← {{ 'Покупки'|trans }}</a></p>
+        <h1>{{ 'Настройки ИИ'|trans }}</h1>
+        <p class="muted measure">{{ 'Чеки читает Claude или GPT. Без ключа — через Claude Code или Codex, установленные на этом Mac: они работают по твоей подписке Claude или ChatGPT. По API нужен ключ из консоли разработчика, оплата за каждый чек по тарифам API; ключ хранится зашифрованным только на этом Mac. Второй Mac и телефон пользуются выбранным способом через общий доступ.'|trans }}</p>
+    </div>
+
+    {% if notice %}<p class="notice" role="status">{{ notice|trans }}</p>{% endif %}
+    {% if error is defined %}<p class="error" role="alert">{{ error|message }}</p>{% endif %}
+
+    <form class="block ai-settings" method="post" action="{{ path('web_ai_settings_save') }}" autocomplete="off">
+        <fieldset class="whose">
+            <legend class="label">{{ 'Кто читает чеки'|trans }}</legend>
+            {% for p in providers %}
+                <label><input type="radio" name="provider" value="{{ p.provider.value }}" {{ p.provider == current ? 'checked' }}><span>{{ p.provider.label }}</span></label>
+            {% endfor %}
+        </fieldset>
+
+        {% for p in providers %}
+            {% set v = p.provider.value %}
+            <fieldset class="ai-provider">
+                <legend><h2>{{ p.provider.label }}</h2></legend>
+                <div class="grid2">
+                    {% if p.provider.needsKey %}
+                        <div>
+                            <label class="label" for="key-{{ v }}">{{ 'API-ключ'|trans }}</label>
+                            <input id="key-{{ v }}" class="input" type="password" name="key[{{ v }}]" maxlength="400" spellcheck="false"
+                                   placeholder="{{ p.keyHint ? 'сохранён %hint% — вставь новый, чтобы заменить'|trans({'%hint%': p.keyHint}) : 'вставь ключ'|trans }}">
+                            <p class="hint"><a href="{{ p.provider.keyConsole }}" target="_blank" rel="noopener noreferrer">{{ 'Где взять ключ'|trans }}</a></p>
+                        </div>
+                    {% else %}
+                        <p class="hint">{{ 'Ключ не нужен: чек читает программа %tool% на этом Mac по твоей подписке. Установи её и один раз войди, запустив %tool% в Терминале. Чек разбирается до двух минут.'|trans({'%tool%': p.provider.tool}) }}</p>
+                    {% endif %}
+                    <div>
+                        <label class="label" for="model-{{ v }}">{{ 'Модель'|trans }}</label>
+                        <input id="model-{{ v }}" class="input num" name="model[{{ v }}]" maxlength="80" spellcheck="false" value="{{ p.model }}"
+                               placeholder="{{ p.provider.defaultModel }}">
+                        <p class="hint">{{ p.provider.defaultModel ? 'Пусто — %model%.'|trans({'%model%': p.provider.defaultModel}) : 'Пусто — модель, выбранная в самой программе.'|trans }}</p>
+                    </div>
+                </div>
+                {% if p.keyHint %}
+                    <label class="hint"><input type="checkbox" name="forget[{{ v }}]" value="1"> {{ 'забыть сохранённый ключ'|trans }}</label>
+                {% endif %}
+            </fieldset>
+        {% endfor %}
+
+        <div class="actions"><button class="button" type="submit">{{ 'Сохранить'|trans }}</button></div>
+    </form>
+{% endblock %}
